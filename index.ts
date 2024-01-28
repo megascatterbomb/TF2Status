@@ -19,7 +19,7 @@ client.on('ready', () => {
 });
 
 const queryInterval = 1 * 60 * 1000;
-const resultArchiveLimit = 10;
+const resultArchiveLimit = 20;
 
 async function mainLoop() {
     let prevtime: number | undefined = undefined;
