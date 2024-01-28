@@ -138,7 +138,8 @@ function buildServerActivity(resultArchive: Result[]): string {
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         newOutput += queryAgeString;
         newOutput += `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        for(let j = 0; j < (result.query?.info.players.online ?? 0); j++) {
+        const increment = Math.max(1, (result.query?.info.players.max ?? 100) / 25)
+        for(let j = 0; j < (result.query?.info.players.online ?? 0); j+=increment) {
             newOutput += "|"
         }
         newOutput += ` ${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}\n`
