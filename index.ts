@@ -25,6 +25,8 @@ async function mainLoop() {
     let prevtime: number | undefined = undefined;
     const channelID = process.env.CHANNEL ?? "";
     const channel = await client.channels.fetch(channelID) as TextChannel;
+    const ip = process.env.SERVER_IP ?? ""
+    const port: number =  Number.parseInt(process.env.SERVER_PORT ?? "0");
 
     let resultArchive: Result[] = [];
 
@@ -33,14 +35,14 @@ async function mainLoop() {
         try {
             // Get image
             const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
-            const result = await getResults("103.13.102.83", 6996);
+            const result = await getResults(ip, port);
 
             resultArchive.push(result);
 
             const embed = new EmbedBuilder({
                 title: result.query?.info.name ?? "Server may be offline...",
-                url: "https://megascatterbomb.com/tf2",
-                description: "Click server name to connect. Do not use a VPN or else you will be temp-banned.",
+                url: process.env.LINK_TO_SERVER,
+                description: process.env.DESCRIPTION,
                 timestamp: Date.now(),
                 color: result.query === undefined ? 0xff0000 : 0x00ff00,
                 fields: [
@@ -56,7 +58,7 @@ async function mainLoop() {
                     },
                     {
                         name: "Connect via console:",
-                        value: "connect magpie.chs.gg:6996",
+                        value: `connect ${process.env.SERVER_DOMAIN ?? process.env.SERVER_IP ?? "?"}`,
                         inline: true
                     },
                     {
