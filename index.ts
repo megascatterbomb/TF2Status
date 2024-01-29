@@ -117,6 +117,7 @@ client.login(process.env.DISCORD_TOKEN);
   
 function buildServerActivity(resultArchive: Result[]): string {
     const maxCharsFieldValue = 1024
+    const maxCharsLine = 61
     while(resultArchive.length > resultArchiveLimit) {
         resultArchive.splice(0, resultArchive.length - resultArchiveLimit)
     }
@@ -132,17 +133,25 @@ function buildServerActivity(resultArchive: Result[]): string {
     for(let i = resultArchive.length - 1; i >= 0; i-- ) {
         const result = resultArchive[i];
         let newOutput = output;
+
         const queryAge = calculateMinutesBetweenTimestamps(Date.now(), result.time);
-        let queryAgeString = queryAge === 0
+        const queryAgeString = queryAge === 0
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
-        newOutput += queryAgeString;
-        newOutput += `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const increment = Math.max(1, (result.query?.info.players.max ?? 100) / 25)
+        const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
+        const playerCountString = ` ${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}\n`
+
+        let playerGraphString = ""
+        const increment = Math.min((result.query?.info.players.max ?? 100)/(maxCharsLine - queryAgeString.length - mapNameString.length - playerCountString.length), 1)
         for(let j = 0; j < (result.query?.info.players.online ?? 0); j+=increment) {
-            newOutput += "|"
+            playerGraphString += "|"
         }
-        newOutput += ` ${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}\n`
+
+        newOutput += queryAgeString;
+        newOutput += mapNameString;
+        newOutput += playerGraphString;
+        newOutput += playerCountString;
+        
         if(newOutput.length > maxCharsFieldValue - outputEnd.length) {
             break;
         }
