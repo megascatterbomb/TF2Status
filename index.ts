@@ -205,7 +205,7 @@ function getPings(result: Result): string {
         low ? process.env.PING_ROLE_LOW ?? "" : "",
         mid ? process.env.PING_ROLE_MID ?? "" : "",
         high ? process.env.PING_ROLE_HIGH ?? "" : ""
-    ].filter(s => s.length > 0).map(s => `<@${s}>`).join(" ")
+    ].filter(s => s.length > 0).map(s => `<@&${s}>`).join(" ")
 }
   
 
