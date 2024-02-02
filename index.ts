@@ -46,12 +46,14 @@ async function mainLoop() {
 
             resultArchive.push(result);
 
+            const {title, color} = getTitleAndColor(resultArchive)
+
             const embed = new EmbedBuilder({
-                title: result.query?.info.name ?? "Server may be offline...",
+                title: title,
                 url: process.env.LINK_TO_SERVER,
                 description: process.env.DESCRIPTION,
                 timestamp: Date.now(),
-                color: result.query === undefined ? 0xff0000 : 0x00ff00,
+                color: color,
                 fields: [
                     {
                         name: "Map:",
@@ -209,6 +211,30 @@ function getPings(result: Result): string {
         mid ? process.env.PING_ROLE_MID ?? "" : "",
         high ? process.env.PING_ROLE_HIGH ?? "" : ""
     ].filter(s => s.length > 0).map(s => `<@&${s}>`).join(" ")
+}
+
+function getTitleAndColor(resultArchive: Result[]): {title: string, color: number} {
+    let consecutivefailCount = 0;
+    let mostRecentServerName = undefined;
+    for(let i = resultArchive.length - 1; i >= 0; i-- ) {
+        const result = resultArchive[i];
+        if (result.query === undefined) {
+            consecutivefailCount++
+        } else {
+            mostRecentServerName = result.query.info.name
+            break;
+        }
+    }
+    switch (consecutivefailCount) {
+        case 0:
+            return {title: mostRecentServerName ?? "Awaiting initial server query...", color: 0x00ff00}
+        case 1:
+            return {title: mostRecentServerName ?? "Server may be offline...", color: 0x00ff00}
+        case 2:
+            return {title: "Server may be offline...", color: 0xffff00}
+        default:
+            return {title: "Server is offline", color: 0xff0000}
+    }
 }
   
 
