@@ -197,9 +197,9 @@ function getPings(result: Result): string {
     if(mid) pingTimeMid = now;
     if(high) pingTimeHigh = now;
 
-    if(!low && now - (pingTimeLow ?? now) > pingTimeLimit) pingTimeLow = undefined;
-    if(!mid && now - (pingTimeMid ?? now) > pingTimeLimit) pingTimeMid = undefined;
-    if(!high && now - (pingTimeHigh ?? now) > pingTimeLimit) pingTimeHigh = undefined;
+    if(!low && onlinePlayers !== undefined && onlinePlayers < (lowThreshold - hysteresis) && now - (pingTimeLow ?? now) > pingTimeLimit) pingTimeLow = undefined;
+    if(!mid && onlinePlayers !== undefined && onlinePlayers < (midThreshold - hysteresis) && now - (pingTimeMid ?? now) > pingTimeLimit) pingTimeMid = undefined;
+    if(!high && onlinePlayers !== undefined && onlinePlayers < (highThreshold - hysteresis) && now - (pingTimeHigh ?? now) > pingTimeLimit) pingTimeHigh = undefined;
 
     return [
         low ? process.env.PING_ROLE_LOW ?? "" : "",
