@@ -4,6 +4,7 @@ import { resolve } from 'path';
 import url from 'url';
 import fs from 'fs';
 import {Server} from '@fabricio-191/valve-server-query'
+import { getPackedSettings } from 'http2';
 
 console.log("Starting process...")
 
@@ -20,6 +21,12 @@ client.on('ready', () => {
 
 const queryInterval = 1 * 60 * 1000;
 const resultArchiveLimit = 20;
+const pingTimeLimit = 2 * 60 * 60 * 1000;
+const hysteresis = 3
+
+let pingTimeLow: number | undefined
+let pingTimeMid: number | undefined
+let pingTimeHigh: number | undefined
 
 async function mainLoop() {
     let prevtime: number | undefined = undefined;
@@ -67,10 +74,13 @@ async function mainLoop() {
                     }
                 ]
             })
-            if(lastMessage && lastMessage.author.id === client.user?.id) {
+
+            const pings = getPings(result);
+
+            if(pings.length === 0 && lastMessage && lastMessage.author.id === client.user?.id) {
                 await lastMessage.edit({embeds: [embed]})
             } else {
-                await channel.send({embeds: [embed]})
+                await channel.send({content: pings, embeds: [embed]})
             }
         } catch (err) {
             console.log("shit hit the fan: " + err);
@@ -169,6 +179,33 @@ function calculateMinutesBetweenTimestamps(timestamp1: number, timestamp2: numbe
     const diffMs = Math.abs(date2.getTime() - date1.getTime());
     const diffMins = Math.round(diffMs / 60000);
     return diffMins;
-  }
+}
+
+function getPings(result: Result): string {
+    let now = Date.now();
+    const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
+    const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
+    const highThreshold = Number.parseInt(process.env.PING_THRESHOLD_HIGH ?? Number.MAX_SAFE_INTEGER.toString())
+
+    const onlinePlayers = result.query?.info.players.online;
+
+    const low = pingTimeLow === undefined && onlinePlayers !== undefined && onlinePlayers >= lowThreshold
+    const mid = pingTimeMid === undefined && onlinePlayers !== undefined && onlinePlayers >= midThreshold
+    const high = pingTimeHigh === undefined && onlinePlayers !== undefined && onlinePlayers >= highThreshold
+
+    if(low) pingTimeLow = now;
+    if(mid) pingTimeMid = now;
+    if(high) pingTimeHigh = now;
+
+    if(!low && now - (pingTimeLow ?? now) > pingTimeLimit) pingTimeLow = undefined;
+    if(!mid && now - (pingTimeMid ?? now) > pingTimeLimit) pingTimeMid = undefined;
+    if(!high && now - (pingTimeHigh ?? now) > pingTimeLimit) pingTimeHigh = undefined;
+
+    return [
+        low ? process.env.PING_ROLE_LOW ?? "" : "",
+        mid ? process.env.PING_ROLE_MID ?? "" : "",
+        high ? process.env.PING_ROLE_HIGH ?? "" : ""
+    ].filter(s => s.length > 0).map(s => `<@${s}>`).join(" ")
+}
   
 
