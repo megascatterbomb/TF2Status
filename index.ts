@@ -80,6 +80,9 @@ async function mainLoop() {
             if(pings.length === 0 && lastMessage && lastMessage.author.id === client.user?.id) {
                 await lastMessage.edit({embeds: [embed]})
             } else {
+                if(lastMessage && lastMessage.author.id === client.user?.id) {
+                    await lastMessage.delete();
+                } 
                 await channel.send({content: pings, embeds: [embed]})
             }
         } catch (err) {
