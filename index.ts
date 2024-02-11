@@ -46,11 +46,11 @@ async function mainLoop() {
 
             resultArchive.push(result);
 
-            const {title, color} = getTitleAndColor(resultArchive)
+            const {title, color, allowConnections} = getTitleAndColor(resultArchive)
 
             const embed = new EmbedBuilder({
                 title: title,
-                url: process.env.LINK_TO_SERVER,
+                url: (allowConnections ? process.env.LINK_TO_SERVER : undefined),
                 description: process.env.DESCRIPTION,
                 timestamp: Date.now(),
                 color: color,
@@ -213,27 +213,31 @@ function getPings(result: Result): string {
     ].filter(s => s.length > 0).map(s => `<@&${s}>`).join(" ")
 }
 
-function getTitleAndColor(resultArchive: Result[]): {title: string, color: number} {
+function getTitleAndColor(resultArchive: Result[]): {title: string, color: number, allowConnections: boolean} {
     let consecutivefailCount = 0;
-    let mostRecentServerName = undefined;
+    let mostRecentResult: Result | undefined = undefined;
+
     for(let i = resultArchive.length - 1; i >= 0; i-- ) {
         const result = resultArchive[i];
         if (result.query === undefined) {
             consecutivefailCount++
         } else {
-            mostRecentServerName = result.query.info.name
+            mostRecentResult = result
             break;
         }
     }
+    // password protected
+    if(mostRecentResult?.query?.info.visibility === "private") {
+        return {title: "Server is password-protected", color: 0xffff00, allowConnections: false}
+    }
+
     switch (consecutivefailCount) {
         case 0:
-            return {title: mostRecentServerName ?? "Awaiting initial server query...", color: 0x00ff00}
+            return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: 0x00ff00, allowConnections: true}
         case 1:
-            return {title: mostRecentServerName ?? "Server may be offline...", color: 0x00ff00}
-        case 2:
-            return {title: "Server may be offline...", color: 0xffff00}
+            return {title: mostRecentResult?.query?.info.name ?? "Server is changing maps...", color: 0xffff00, allowConnections: true}
         default:
-            return {title: "Server is offline", color: 0xff0000}
+            return {title: `Server is offline (failed ${consecutivefailCount} queries)`, color: 0xff0000, allowConnections: false}
     }
 }
   
