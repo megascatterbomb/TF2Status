@@ -235,7 +235,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
         case 0:
             return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: 0x00ff00, allowConnections: true}
         case 1:
-            return {title: mostRecentResult?.query?.info.name ?? "Server is changing maps...", color: 0xffff00, allowConnections: true}
+            return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: 0xffff00, allowConnections: true}
         default:
             return {title: `Server is offline (failed ${consecutivefailCount} queries)`, color: 0xff0000, allowConnections: false}
     }
