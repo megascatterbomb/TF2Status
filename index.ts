@@ -227,7 +227,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
         }
     }
     // password protected
-    if(mostRecentResult?.query?.info.visibility === "private") {
+    if(consecutivefailCount < 2 && mostRecentResult?.query?.info.visibility === "private") {
         return {title: "Server is password-protected", color: 0xffff00, allowConnections: false}
     }
 
