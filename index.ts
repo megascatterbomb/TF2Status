@@ -187,6 +187,11 @@ function calculateMinutesBetweenTimestamps(timestamp1: number, timestamp2: numbe
 }
 
 function getPings(result: Result): string {
+
+    if(result.query?.info.visibility === "private") {
+        return "";
+    }
+
     let now = Date.now();
     const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
     const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
