@@ -156,11 +156,11 @@ function buildServerActivity(resultArchive: Result[]): string {
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = ` ${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}\n`
+        const playerCountString = getPlayerCountString(result) + "\n";
 
         let playerGraphString = ""
         const increment = Math.max((result.query?.info.players.max ?? 100)/(maxCharsLine - queryAgeString.length - mapNameString.length - playerCountString.length), 1)
-        for(let j = 0; j < (result.query?.info.players.online ?? 0); j+=increment) {
+        for(let j = 0; j < (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0); j+=increment) {
             playerGraphString += "|"
         }
 
@@ -247,5 +247,8 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
             return {title: `Server is offline (failed ${consecutivefailCount} queries)`, color: 0xff0000, allowConnections: false}
     }
 }
-  
+
+function getPlayerCountString(result: Result): string {
+    return `${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`
+}
 
