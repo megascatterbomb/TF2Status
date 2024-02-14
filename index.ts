@@ -62,7 +62,7 @@ async function mainLoop() {
                     },
                     {
                         name: "Current Players:",
-                        value: `${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}`,
+                        value: `${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`,
                         inline: true
                     },
                     {
@@ -197,7 +197,9 @@ function getPings(result: Result): string {
     const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
     const highThreshold = Number.parseInt(process.env.PING_THRESHOLD_HIGH ?? Number.MAX_SAFE_INTEGER.toString())
 
-    const onlinePlayers = result.query?.info.players.online;
+    const onlinePlayers = result.query?.info.players.online
+        ? result.query?.info.players.online - (result.query?.info.players.bots ?? 0)
+        : undefined;
 
     const low = pingTimeLow === undefined && onlinePlayers !== undefined && onlinePlayers >= lowThreshold
     const mid = pingTimeMid === undefined && onlinePlayers !== undefined && onlinePlayers >= midThreshold
