@@ -35,6 +35,10 @@ async function mainLoop() {
     const ip = process.env.SERVER_IP ?? ""
     const port: number =  Number.parseInt(process.env.SERVER_PORT ?? "0");
 
+    const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
+    const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
+    const highThreshold = Number.parseInt(process.env.PING_THRESHOLD_HIGH ?? Number.MAX_SAFE_INTEGER.toString())
+
     let resultArchive: Result[] = [];
 
     while(true) {
@@ -47,6 +51,8 @@ async function mainLoop() {
             resultArchive.push(result);
 
             const {title, color, allowConnections} = getTitleAndColor(resultArchive)
+
+            const pings = getPings(result);
 
             const embed = new EmbedBuilder({
                 title: title,
@@ -67,7 +73,22 @@ async function mainLoop() {
                     },
                     {
                         name: "Connect via console:",
-                        value: `connect ${process.env.SERVER_DOMAIN ?? process.env.SERVER_IP ?? "?"}`,
+                        value: `\`connect ${process.env.SERVER_DOMAIN ?? process.env.SERVER_IP ?? "?"}\``,
+                        inline: true
+                    },
+                    {
+                        name: `${lowThreshold}p ping:`,
+                        value: getCooldownText(pingTimeLow),
+                        inline: true
+                    },
+                    {
+                        name: `${midThreshold}p ping:`,
+                        value: getCooldownText(pingTimeMid),
+                        inline: true
+                    },
+                    {
+                        name: `${highThreshold}p ping:`,
+                        value: getCooldownText(pingTimeHigh),
                         inline: true
                     },
                     {
@@ -76,8 +97,6 @@ async function mainLoop() {
                     }
                 ]
             })
-
-            const pings = getPings(result);
 
             if(pings.length === 0 && lastMessage && lastMessage.author.id === client.user?.id) {
                 await lastMessage.edit({embeds: [embed]})
@@ -103,6 +122,12 @@ interface Result {
         playerInfo: Server.PlayerInfo[],
     } | undefined
     time: number
+}
+
+function getCooldownText(pingTime: number | undefined): string {
+    if(pingTime === undefined) return "Ready";
+    if(Date.now() - pingTime > pingTimeLimit) return "Waiting for inactivity...";
+    return `Pinged <t:${Math.floor(pingTime / 1000)}:R>`;
 }
 
 async function getResults(ip: string, port: number): Promise<Result> {
@@ -133,8 +158,8 @@ async function getResults(ip: string, port: number): Promise<Result> {
 client.login(process.env.DISCORD_TOKEN);
   
 function buildServerActivity(resultArchive: Result[]): string {
-    const maxCharsFieldValue = 1024
-    const maxCharsLine = 61
+    const maxCharsFieldValue = 1024;
+    const maxCharsLine = 56;
     while(resultArchive.length > resultArchiveLimit) {
         resultArchive.splice(0, resultArchive.length - resultArchiveLimit)
     }
@@ -156,7 +181,7 @@ function buildServerActivity(resultArchive: Result[]): string {
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = " " + getPlayerCountString(result) + "\n";
+        const playerCountString = (" " + getPlayerCountString(result) + "\n");
 
         let playerGraphString = ""
         const increment = Math.max((result.query?.info.players.max ?? 100)/(maxCharsLine - queryAgeString.length - mapNameString.length - playerCountString.length), 1)
@@ -249,6 +274,8 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
 }
 
 function getPlayerCountString(result: Result): string {
-    return `${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`
+    let output = `${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`;
+    const minLength = 2 * (result.query?.info.players.max?.toString().length ?? 0) + 1;
+    return output.padEnd(minLength);
 }
 
