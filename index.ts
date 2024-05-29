@@ -302,7 +302,7 @@ function buildPingActivity(): string {
     return "```" + [
         buildRow(pingTimeLow, lowThreshold),
         buildRow(pingTimeMid, midThreshold),
-        buildRow(pingTimeLow, highThreshold)
+        buildRow(pingTimeHigh, highThreshold)
     ].join("\n") + "```"
 }
 
