@@ -75,7 +75,9 @@ async function mainLoop() {
                     },
                     {
                         name: "Current Players:",
-                        value: `${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`,
+                        value: result.query 
+                            ? `${result.query?.info.players.online - result.query?.info.players.bots}/${result.query?.info.players.max}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`
+                            : "N/A",
                         inline: true
                     },
                     {
@@ -271,9 +273,17 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
 }
 
 function getPlayerCountString(result: Result): string {
-    let output = `${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`;
-    const minLength = 2 * (result.query?.info.players.max?.toString().length ?? 0) + 1;
-    return output.padEnd(minLength);
+
+    if(!result.query) {
+        return "N/A";
+    }
+    const playerCount = result.query?.info.players.online - result.query?.info.players.bots;
+    if(playerCount === (result.query?.info.players.max ?? 100)) {
+        return "FULL!";
+    }
+
+    let output = `${result.query?.info.players.online}/${result.query?.info.players.max}`;
+    return output;
 }
 
 function buildPingActivity(): string {
