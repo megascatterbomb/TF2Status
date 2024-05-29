@@ -20,9 +20,16 @@ client.on('ready', () => {
 });
 
 const queryInterval = 1 * 60 * 1000;
-const resultArchiveLimit = 20;
+const resultArchiveLimit = 100;
 const pingTimeLimit = 2 * 60 * 60 * 1000;
 const hysteresis = 3
+
+const maxCharsFieldValue = 1024;
+const maxCharsLine = 56;
+
+const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
+const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
+const highThreshold = Number.parseInt(process.env.PING_THRESHOLD_HIGH ?? Number.MAX_SAFE_INTEGER.toString())
 
 let pingTimeLow: number | undefined
 let pingTimeMid: number | undefined
@@ -77,19 +84,8 @@ async function mainLoop() {
                         inline: true
                     },
                     {
-                        name: `${lowThreshold}p ping:`,
-                        value: getCooldownText(pingTimeLow),
-                        inline: true
-                    },
-                    {
-                        name: `${midThreshold}p ping:`,
-                        value: getCooldownText(pingTimeMid),
-                        inline: true
-                    },
-                    {
-                        name: `${highThreshold}p ping:`,
-                        value: getCooldownText(pingTimeHigh),
-                        inline: true
+                        name: "Activity Pings:",
+                        value: buildPingActivity()
                     },
                     {
                         name: "Server Activity:",
@@ -158,21 +154,19 @@ async function getResults(ip: string, port: number): Promise<Result> {
 client.login(process.env.DISCORD_TOKEN);
   
 function buildServerActivity(resultArchive: Result[]): string {
-    const maxCharsFieldValue = 1024;
-    const maxCharsLine = 56;
     while(resultArchive.length > resultArchiveLimit) {
         resultArchive.splice(0, resultArchive.length - resultArchiveLimit)
     }
 
-    const mapNames = resultArchive.filter(r => r !== undefined).map(r => r.query?.info.map ?? "")
-    const longestMapNameLength = mapNames.reduce((prev, curr) => {
-        return curr.length > prev.length ? curr : prev
-    }).length
+    const maxRows = 25;
 
     let output = "```\n";
     let outputEnd = "```"
+
+    let map = undefined;
+
     // Iterate by most recent first
-    for(let i = resultArchive.length - 1; i >= 0; i-- ) {
+    for(let i = resultArchive.length - 1; i >= 0 && i >= resultArchive.length - maxRows; i-- ) {
         const result = resultArchive[i];
         let newOutput = output;
 
@@ -180,17 +174,21 @@ function buildServerActivity(resultArchive: Result[]): string {
         const queryAgeString = queryAge === 0
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
-        const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
+        //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
         const playerCountString = (" " + getPlayerCountString(result) + "\n");
 
         let playerGraphString = ""
-        const increment = Math.max((result.query?.info.players.max ?? 100)/(maxCharsLine - queryAgeString.length - mapNameString.length - playerCountString.length), 1)
+        const increment = Math.max((result.query?.info.players.max ?? 100)/(maxCharsLine - queryAgeString.length - playerCountString.length), 1)
         for(let j = 0; j < (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0); j+=increment) {
             playerGraphString += "|"
         }
 
+        if(result.query && (!map || result.query?.info.map !== map)) {
+            newOutput += result.query?.info.map + "\n";
+            map = result.query?.info.map;
+        }
+
         newOutput += queryAgeString;
-        newOutput += mapNameString;
         newOutput += playerGraphString;
         newOutput += playerCountString;
         
@@ -218,25 +216,24 @@ function getPings(result: Result): string {
     }
 
     let now = Date.now();
-    const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
-    const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
-    const highThreshold = Number.parseInt(process.env.PING_THRESHOLD_HIGH ?? Number.MAX_SAFE_INTEGER.toString())
 
-    const onlinePlayers = result.query?.info.players.online
-        ? result.query?.info.players.online - (result.query?.info.players.bots ?? 0)
-        : undefined;
+    if(result.query === undefined) {
+        return "";
+    }
 
-    const low = pingTimeLow === undefined && onlinePlayers !== undefined && onlinePlayers >= lowThreshold
-    const mid = pingTimeMid === undefined && onlinePlayers !== undefined && onlinePlayers >= midThreshold
-    const high = pingTimeHigh === undefined && onlinePlayers !== undefined && onlinePlayers >= highThreshold
+    const onlinePlayers = result.query.info.players.online - (result.query.info.players.bots ?? 0);
+
+    const low = pingTimeLow === undefined && onlinePlayers >= lowThreshold;
+    const mid = pingTimeMid === undefined && onlinePlayers >= midThreshold;
+    const high = pingTimeHigh === undefined && onlinePlayers >= highThreshold;
 
     if(low) pingTimeLow = now;
     if(mid) pingTimeMid = now;
     if(high) pingTimeHigh = now;
 
-    if(!low && onlinePlayers !== undefined && onlinePlayers < (lowThreshold - hysteresis + 1) && now - (pingTimeLow ?? now) > pingTimeLimit) pingTimeLow = undefined;
-    if(!mid && onlinePlayers !== undefined && onlinePlayers < (midThreshold - hysteresis + 1) && now - (pingTimeMid ?? now) > pingTimeLimit) pingTimeMid = undefined;
-    if(!high && onlinePlayers !== undefined && onlinePlayers < (highThreshold - hysteresis + 1) && now - (pingTimeHigh ?? now) > pingTimeLimit) pingTimeHigh = undefined;
+    if(!low && onlinePlayers < (lowThreshold - hysteresis + 1) && now - (pingTimeLow ?? now) > pingTimeLimit) pingTimeLow = undefined;
+    if(!mid && onlinePlayers < (midThreshold - hysteresis + 1) && now - (pingTimeMid ?? now) > pingTimeLimit) pingTimeMid = undefined;
+    if(!high && onlinePlayers < (highThreshold - hysteresis + 1) && now - (pingTimeHigh ?? now) > pingTimeLimit) pingTimeHigh = undefined;
 
     return [
         low ? process.env.PING_ROLE_LOW ?? "" : "",
@@ -277,5 +274,25 @@ function getPlayerCountString(result: Result): string {
     let output = `${result.query?.info.players.online ?? "N"}/${result.query?.info.players.max ?? "A"}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`;
     const minLength = 2 * (result.query?.info.players.max?.toString().length ?? 0) + 1;
     return output.padEnd(minLength);
+}
+
+function buildPingActivity(): string {
+    const buildRow = (time: number | undefined, threshold: number): string => {
+        const start = `${threshold} PLAYER PING: `
+        if(time === undefined) return `${start}READY`;
+        if(Date.now() - time > pingTimeLimit) return `${start}WAITING FOR INACTIVITY (<=${threshold - hysteresis} PLAYERS)`;
+        
+        const timeRemaining = time + pingTimeLimit - Date.now();
+        const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+        const minutes = Math.floor(timeRemaining / (1000 * 60)) % 60
+
+        return `${start}ON COOLDOWN ${hours}h ${minutes}m`
+    }
+
+    return "```" + [
+        buildRow(pingTimeLow, lowThreshold),
+        buildRow(pingTimeMid, midThreshold),
+        buildRow(pingTimeLow, highThreshold)
+    ].join("\n") + "```"
 }
 
