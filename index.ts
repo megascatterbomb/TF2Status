@@ -194,7 +194,7 @@ function buildServerActivity(resultArchive: Result[]): string {
         newOutput += playerGraphString;
         newOutput += playerCountString;
         
-        if(newOutput.length > maxCharsFieldValue - outputEnd.length || newOutput.split("\n").length > maxRows + 1) {
+        if(newOutput.length > maxCharsFieldValue - outputEnd.length || newOutput.split("\n").length > maxRows + 2) {
             break;
         }
         output = newOutput;
