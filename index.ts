@@ -160,7 +160,8 @@ function buildServerActivity(resultArchive: Result[]): string {
         resultArchive.splice(0, resultArchive.length - resultArchiveLimit)
     }
 
-    const maxRows = 25;
+    const maxQueries = 21;
+    const maxDisplay = 25; 
 
     let output = "```\n";
     let outputEnd = "```"
@@ -168,7 +169,7 @@ function buildServerActivity(resultArchive: Result[]): string {
     let map = undefined;
 
     // Iterate by most recent first
-    for(let i = resultArchive.length - 1; i >= 0 && i >= resultArchive.length - maxRows; i-- ) {
+    for(let i = resultArchive.length - 1; i >= 0 && i >= resultArchive.length - maxQueries; i-- ) {
         const result = resultArchive[i];
         let newOutput = output;
 
@@ -194,7 +195,7 @@ function buildServerActivity(resultArchive: Result[]): string {
         newOutput += playerGraphString;
         newOutput += playerCountString;
         
-        if(newOutput.length > maxCharsFieldValue - outputEnd.length || newOutput.split("\n").length > maxRows + 2) {
+        if(newOutput.length > maxCharsFieldValue - outputEnd.length || newOutput.split("\n").length > maxDisplay + 2) {
             break;
         }
         output = newOutput;
