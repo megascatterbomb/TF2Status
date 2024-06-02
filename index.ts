@@ -263,6 +263,13 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
         return {title: "Server is password-protected", color: 0xffff00, allowConnections: false}
     }
 
+    if(consecutivefailCount < 2 && mostRecentResult?.query &&
+        mostRecentResult?.query?.info.players.online
+        - mostRecentResult?.query?.info.players.bots
+        === mostRecentResult?.query?.info.players.max) {
+            return {title: "Server is FULL!", color: 0x00ffaa, allowConnections: false}
+    }
+
     switch (consecutivefailCount) {
         case 0:
             return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: 0x00ff00, allowConnections: true}
