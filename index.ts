@@ -25,7 +25,7 @@ const pingTimeLimit = 2 * 60 * 60 * 1000;
 const hysteresis = 3
 
 const maxCharsFieldValue = 1024;
-const maxCharsLine = 50;
+const maxCharsLine = 49;
 
 const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
 const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
@@ -90,7 +90,7 @@ async function mainLoop() {
                         value: buildPingActivity()
                     },
                     {
-                        name: "Server Activity:",
+                        name: "Recent History:",
                         value: buildServerActivity(resultArchive)
                     }
                 ]
@@ -178,7 +178,7 @@ function buildServerActivity(resultArchive: Result[]): string {
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = (" " + getPlayerCountString(result) + "\n");
+        const playerCountString = (" " + ((result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0)) + "\n").padStart(5);
 
         let playerGraphString = ""
         const increment = Math.max((result.query?.info.players.max ?? 100)/(maxCharsLine - queryAgeString.length - playerCountString.length), 1)
