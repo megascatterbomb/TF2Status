@@ -25,7 +25,7 @@ const pingTimeLimit = 2 * 60 * 60 * 1000;
 const hysteresis = 3
 
 const maxCharsFieldValue = 1024;
-const maxCharsLine = 56;
+const maxCharsLine = 50;
 
 const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
 const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
