@@ -178,7 +178,7 @@ function buildServerActivity(resultArchive: Result[]): string {
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = (" " + ((result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0)) + "\n").padStart(5);
+        const playerCountString = result.query ? (" " + ((result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0)) + "\n").padStart(5) : "N/A\n";
 
         let playerGraphString = ""
         const increment = Math.max((result.query?.info.players.max ?? 100)/(maxCharsLine - queryAgeString.length - playerCountString.length), 1)
