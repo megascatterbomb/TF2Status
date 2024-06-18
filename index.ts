@@ -30,10 +30,12 @@ const maxCharsLine = 49;
 const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
 const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
 const highThreshold = Number.parseInt(process.env.PING_THRESHOLD_HIGH ?? Number.MAX_SAFE_INTEGER.toString())
+const superHighThreshold = Number.parseInt(process.env.PING_THRESHOLD_SUPERHIGH ?? Number.MAX_SAFE_INTEGER.toString())
 
 let pingTimeLow: number | undefined
 let pingTimeMid: number | undefined
 let pingTimeHigh: number | undefined
+let pingTimeSuperHigh: number | undefined;
 
 async function mainLoop() {
     let prevtime: number | undefined = undefined;
@@ -41,10 +43,6 @@ async function mainLoop() {
     const channel = await client.channels.fetch(channelID) as TextChannel;
     const ip = process.env.SERVER_IP ?? ""
     const port: number =  Number.parseInt(process.env.SERVER_PORT ?? "0");
-
-    const lowThreshold = Number.parseInt(process.env.PING_THRESHOLD_LOW ?? Number.MAX_SAFE_INTEGER.toString())
-    const midThreshold = Number.parseInt(process.env.PING_THRESHOLD_MID ?? Number.MAX_SAFE_INTEGER.toString()) 
-    const highThreshold = Number.parseInt(process.env.PING_THRESHOLD_HIGH ?? Number.MAX_SAFE_INTEGER.toString())
 
     let resultArchive: Result[] = [];
 
@@ -120,12 +118,6 @@ interface Result {
         playerInfo: Server.PlayerInfo[],
     } | undefined
     time: number
-}
-
-function getCooldownText(pingTime: number | undefined): string {
-    if(pingTime === undefined) return "Ready";
-    if(Date.now() - pingTime > pingTimeLimit) return "Waiting for inactivity...";
-    return `Pinged <t:${Math.floor(pingTime / 1000)}:R>`;
 }
 
 async function getResults(ip: string, port: number): Promise<Result> {
@@ -229,19 +221,23 @@ function getPings(result: Result): string {
     const low = pingTimeLow === undefined && onlinePlayers >= lowThreshold;
     const mid = pingTimeMid === undefined && onlinePlayers >= midThreshold;
     const high = pingTimeHigh === undefined && onlinePlayers >= highThreshold;
+    const superHigh = pingTimeSuperHigh === undefined && onlinePlayers >= superHighThreshold;
 
     if(low) pingTimeLow = now;
     if(mid) pingTimeMid = now;
     if(high) pingTimeHigh = now;
+    if(superHigh) pingTimeSuperHigh = now;
 
     if(!low && onlinePlayers < (lowThreshold - hysteresis + 1) && now - (pingTimeLow ?? now) > pingTimeLimit) pingTimeLow = undefined;
     if(!mid && onlinePlayers < (midThreshold - hysteresis + 1) && now - (pingTimeMid ?? now) > pingTimeLimit) pingTimeMid = undefined;
     if(!high && onlinePlayers < (highThreshold - hysteresis + 1) && now - (pingTimeHigh ?? now) > pingTimeLimit) pingTimeHigh = undefined;
+    if(!superHigh && onlinePlayers < (superHighThreshold - hysteresis + 1) && now - (pingTimeSuperHigh ?? now) > pingTimeLimit) pingTimeSuperHigh = undefined;
 
     return [
         low ? process.env.PING_ROLE_LOW ?? "" : "",
         mid ? process.env.PING_ROLE_MID ?? "" : "",
-        high ? process.env.PING_ROLE_HIGH ?? "" : ""
+        high ? process.env.PING_ROLE_HIGH ?? "" : "",
+        superHigh ? process.env.PING_ROLE_SUPERHIGH ?? "" : ""
     ].filter(s => s.length > 0).map(s => `<@&${s}>`).join(" ")
 }
 
@@ -298,7 +294,7 @@ function buildPingActivity(): string {
     const buildRow = (time: number | undefined, threshold: number): string => {
         const start = `${threshold} PLAYER PING: `
         if(time === undefined) return `${start}READY`;
-        if(Date.now() - time > pingTimeLimit) return `${start}WAITING FOR INACTIVITY (<=${threshold - hysteresis} PLAYERS)`;
+        if(Date.now() - time > pingTimeLimit) return `${start}RESETS BELOW ${threshold - hysteresis + 1} PLAYERS`;
         
         const timeRemaining = time + pingTimeLimit - Date.now();
         const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
@@ -310,7 +306,8 @@ function buildPingActivity(): string {
     return "```" + [
         buildRow(pingTimeLow, lowThreshold),
         buildRow(pingTimeMid, midThreshold),
-        buildRow(pingTimeHigh, highThreshold)
+        buildRow(pingTimeHigh, highThreshold),
+        buildRow(pingTimeSuperHigh, superHighThreshold)
     ].join("\n") + "```"
 }
 
