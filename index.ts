@@ -272,7 +272,9 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
         case 1:
             return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: 0xffff00, allowConnections: true}
         default:
-            return {title: `Server is offline (failed ${consecutivefailCount} queries)`, color: 0xff0000, allowConnections: false}
+            return {title: `Server is offline (failed ${
+                consecutivefailCount > resultArchiveLimit ? `${resultArchiveLimit}+` : consecutivefailCount
+            } queries)`, color: 0xff0000, allowConnections: false}
     }
 }
 
