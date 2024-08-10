@@ -1,10 +1,6 @@
 import Discord, { TextChannel, ThreadAutoArchiveDuration, User, Message, Attachment, AttachmentBuilder, EmbedBuilder } from 'discord.js';
-import https from 'https';
-import { resolve } from 'path';
-import url from 'url';
-import fs from 'fs';
 import {Server} from '@fabricio-191/valve-server-query'
-import { getPackedSettings } from 'http2';
+import { startWebServer } from './webserver';
 
 console.log("Starting process...")
 
@@ -17,6 +13,7 @@ const client = new Discord.Client({
 client.on('ready', () => {
   console.log(`Logged in as ${client.user?.tag}!`);
   mainLoop();
+  startWebServer();
 });
 
 const queryInterval = 1 * 60 * 1000;

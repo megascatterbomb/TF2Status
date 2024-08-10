@@ -11,9 +11,11 @@
   "dependencies": {
     "@fabricio-191/valve-server-query": "^4.1.9",
     "discord.js": "^14.14.1",
-    "dotenv": "^16.4.1"
+    "dotenv": "^16.4.1",
+    "express": "^4.19.2"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^20.11.6",
     "typescript": "^5.3.3"
   }
