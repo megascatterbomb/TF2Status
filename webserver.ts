@@ -8,7 +8,7 @@ require("dotenv").config();
 const port = process.env.ENVIRONMENT === "PRODUCTION" ? 3000 : 3001;
 
 export function startWebServer() {
-    if(!(process.env.TF2_SERVER_URL && process.env.FASTDL_PATH)) {
+    if(process.env.ENVIRONMENT === "NOWEB" || !(process.env.TF2_SERVER_URL && process.env.FASTDL_PATH)) {
         return;
     }
     console.log("test");
