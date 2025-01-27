@@ -1,25 +1,17 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
+import { TF2Server } from ".";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-require("dotenv").config();
 
-const port = process.env.ENVIRONMENT === "PRODUCTION" ? 3000 : 3001;
-
-export function startWebServer() {
-    if(process.env.ENVIRONMENT === "NOWEB" || !(process.env.TF2_SERVER_URL && process.env.FASTDL_PATH)) {
-        return;
-    }
-    console.log("test");
+export function startWebServer(servers: TF2Server[], port: number) {
     const app = express();
-    app.get("/tf2", (req: Request, res: Response) => {
-        if(process.env.TF2_SERVER_URL) {
-            res.redirect(process.env.TF2_SERVER_URL);
-        } else {
-            res.sendStatus(503);
-        }
-    })
+    servers.forEach(server => {
+        app.get(`/tf2/${server.urlPath}`, (req: Request, res: Response) => {
+            res.redirect(`steam://connect/${server.ip}:${server.port}`);
+        })
+    });
+    
     app.get("/tf2/*", (req: Request, res: Response) => {
         if (req.params[0]) {
             const fastDLRoot = process.env.FASTDL_PATH;
