@@ -1,12 +1,12 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
-import { TF2Server } from ".";
+import { Config } from ".";
 
 
-export function startWebServer(servers: TF2Server[], port: number) {
+export function startWebServer(config: Config) {
     const app = express();
-    servers.forEach(server => {
+    config.servers.forEach(server => {
         app.get(`/tf2/${server.urlPath}`, (req: Request, res: Response) => {
             res.redirect(`steam://connect/${server.ip}:${server.port}`);
         })
@@ -14,7 +14,7 @@ export function startWebServer(servers: TF2Server[], port: number) {
     
     app.get("/tf2/*", (req: Request, res: Response) => {
         if (req.params[0]) {
-            const fastDLRoot = process.env.FASTDL_PATH;
+            const fastDLRoot = config.fastdlPath;
             if(!fastDLRoot) {
                 res.sendStatus(404);
                 return;
@@ -29,5 +29,5 @@ export function startWebServer(servers: TF2Server[], port: number) {
             res.sendStatus(503);
         }
     })
-    app.listen(port);
+    app.listen(config.webPort);
 }

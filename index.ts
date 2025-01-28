@@ -13,7 +13,7 @@ const client = new Discord.Client({
 client.on('ready', () => {
   console.log(`Logged in as ${client.user?.tag}!`);
   mainLoop();
-  startWebServer(config.servers, config.webPort);
+  startWebServer(config);
 });
 
 export type Ping = {
@@ -32,7 +32,7 @@ export type TF2Server = {
     pings: Ping[]
 }
 
-type Config = {
+export type Config = {
     discordToken: string,
     connectURLBase: string,
     servers: TF2Server[],
