@@ -207,7 +207,7 @@ function buildServerActivity(resultArchive: Result[]): string {
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = result.query ? (onlinePlayers + "\n") : "N/A\n";
+        const playerCountString = (result.query ? (onlinePlayers.toString()) : "N/A").padStart(maxPlayers.toString().length, ' ') + '\n';
 
         let playerGraphString = ""
 
