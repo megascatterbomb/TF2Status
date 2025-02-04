@@ -199,18 +199,27 @@ function buildServerActivity(resultArchive: Result[]): string {
         const result = resultArchive[i];
         let newOutput = output;
 
+        const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
+        const maxPlayers = result.query?.info.players.max ?? 100;
+
         const queryAge = calculateMinutesBetweenTimestamps(Date.now(), result.time);
         const queryAgeString = queryAge === 0
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = result.query ? (" " + ((result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0)) + "\n").padStart(5) : "N/A\n";
+        const playerCountString = result.query ? (onlinePlayers + "\n") : "N/A\n";
 
         let playerGraphString = ""
-        const increment = Math.max((result.query?.info.players.max ?? 100)/(maxCharsLine - queryAgeString.length - playerCountString.length), 1)
-        for(let j = 0; j < (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0); j+=increment) {
-            playerGraphString += "|"
+
+        const brailleChars = ['⡀', '⡄', '⡆', '⡇', '⣇', '⣧', '⣷', '⣿']
+        const increment = brailleChars.length;
+
+        for(let j = onlinePlayers; j > 0; j-=increment) {
+            let charIndex = Math.min(brailleChars.length, j);
+            playerGraphString += brailleChars[charIndex - 1];
         }
+
+        playerGraphString = playerGraphString.padEnd(Math.ceil(maxPlayers / increment) + 1, ' ')
 
         if(result.query && (!map || result.query?.info.map !== map)) {
             newOutput += result.query?.info.map + "\n";
