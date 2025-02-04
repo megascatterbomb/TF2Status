@@ -207,7 +207,7 @@ function buildServerActivity(resultArchive: Result[]): string {
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = (result.query ? (onlinePlayers.toString()) : "N/A").padStart(maxPlayers.toString().length, ' ') + '\n';
+        const playerCountString = ' ' + (result.query ? (onlinePlayers.toString()) : "N/A").padStart(maxPlayers.toString().length, ' ') + '\n';
 
         let playerGraphString = ""
 
@@ -218,8 +218,6 @@ function buildServerActivity(resultArchive: Result[]): string {
             let charIndex = Math.min(brailleChars.length, j);
             playerGraphString += brailleChars[charIndex - 1];
         }
-
-        playerGraphString = playerGraphString.padEnd(Math.ceil(maxPlayers / increment) + 1, ' ')
 
         if(result.query && (!map || result.query?.info.map !== map)) {
             newOutput += result.query?.info.map + "\n";
