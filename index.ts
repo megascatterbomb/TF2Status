@@ -289,6 +289,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
             break;
         }
     }
+    
     // password protected
     if(consecutivefailCount < 2 && mostRecentResult?.query?.info.visibility === "private") {
         return {title: "Server is password-protected", color: 0xffff00, allowConnections: false}
@@ -303,7 +304,8 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
 
     switch (consecutivefailCount) {
         case 0:
-            return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: 0x00ff00, allowConnections: true}
+            const color = mostRecentResult?.query && mostRecentResult?.query?.info.players.online - mostRecentResult?.query?.info.players.bots === 0 ? 0x008800 : 0x00ff00;
+            return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: color, allowConnections: true}
         case 1:
             return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: 0xffff00, allowConnections: true}
         default:
