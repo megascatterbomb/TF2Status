@@ -29,6 +29,7 @@ export type TF2Server = {
     connectString: string | undefined,
     description: string,
     channelID: string,
+    graphDensity: number,
     pings: Ping[]
 }
 
@@ -39,7 +40,6 @@ export type Config = {
     webPort: number,
     fastdlPath: string | undefined,
 }
-
 const queryInterval = 1 * 60 * 1000;
 const resultArchiveLimit = 100;
 const pingTimeLimit = 2 * 60 * 60 * 1000;
@@ -123,7 +123,7 @@ async function handleServer(server: TF2Server) {
 
         fields.push({
             name: "Recent History:",
-            value: buildServerActivity(results),
+            value: buildServerActivity(results, server.graphDensity),
             inline: false
         });
 
@@ -184,7 +184,7 @@ async function getResults(ip: string, port: number): Promise<Result> {
 
 client.login(config.discordToken);
   
-function buildServerActivity(resultArchive: Result[]): string {
+function buildServerActivity(resultArchive: Result[], graphDensity: number = 4): string {
     while(resultArchive.length > resultArchiveLimit) {
         resultArchive.splice(0, resultArchive.length - resultArchiveLimit)
     }
@@ -202,6 +202,8 @@ function buildServerActivity(resultArchive: Result[]): string {
         const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
         const maxPlayers = result.query?.info.players.max ?? 100;
 
+        const increment = graphDensity ?? 4;
+
         const queryAge = calculateMinutesBetweenTimestamps(Date.now(), result.time);
         const queryAgeString = queryAge === 0
             ? "       NOW: "
@@ -211,12 +213,21 @@ function buildServerActivity(resultArchive: Result[]): string {
 
         let playerGraphString = ""
 
-        const brailleChars = ['⡀', '⡄', '⡆', '⡇', '⣇', '⣧', '⣷', '⣿']
-        const increment = brailleChars.length;
+        let graphChars: string[] = [];
+        switch (increment) {
+            case 8:
+                graphChars = ['⡀', '⡄', '⡆', '⡇', '⣇', '⣧', '⣷', '⣿']
+                break;
+            case 6:
+                graphChars = ['⡀', '⡄', '⡆', '⣆', '⣦', '⣶']
+                break;
+            default:
+                graphChars = ['⠄', '⠆', '⠦', '⠶']
+        }
 
         for(let j = onlinePlayers; j > 0; j-=increment) {
-            let charIndex = Math.min(brailleChars.length, j);
-            playerGraphString += brailleChars[charIndex - 1];
+            let charIndex = Math.min(graphChars.length, j);
+            playerGraphString += graphChars[charIndex - 1];
         }
 
         if(result.query && (!map || result.query?.info.map !== map)) {
