@@ -202,8 +202,6 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
         const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
         const maxPlayers = result.query?.info.players.max ?? 100;
 
-        const increment = graphDensity ?? 4;
-
         const queryAge = calculateMinutesBetweenTimestamps(Date.now(), result.time);
         const queryAgeString = queryAge === 0
             ? "       NOW: "
@@ -214,7 +212,7 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
         let playerGraphString = ""
 
         let graphChars: string[] = [];
-        switch (increment) {
+        switch (graphDensity) {
             case 8:
                 graphChars = ['⡀', '⡄', '⡆', '⡇', '⣇', '⣧', '⣷', '⣿']
                 break;
@@ -224,6 +222,8 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
             default:
                 graphChars = ['⠄', '⠆', '⠦', '⠶']
         }
+
+        const increment = graphChars.length;
 
         for(let j = onlinePlayers; j > 0; j-=increment) {
             let charIndex = Math.min(graphChars.length, j);
