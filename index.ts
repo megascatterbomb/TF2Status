@@ -84,13 +84,9 @@ async function handleServer(server: TF2Server) {
         const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
         const result = await getResults(server.ip, server.port);
 
-        let sdr = false;
         let connectString = `${server.ip}:${server.port}`;
         
-        if (result.query?.info.address?.startsWith("169.254.")) {
-            connectString = result.query?.info.address;
-            sdr = true;
-        } else if (server.connectString) {
+        if (server.connectString) {
             connectString = server.connectString;
         }
 
@@ -102,9 +98,13 @@ async function handleServer(server: TF2Server) {
 
         const results = resultArchive.get(connectString) ?? [];
 
-        const { title, description, color, allowConnections } = getTitleAndColor(results, sdr);
+        const { title, notice, color, allowConnections, sdr } = getTitleAndColor(results);
 
         const pings = getPings(server, result);
+
+        if (sdr) {
+            connectString = result.query?.info.address ?? "SDR IP NOT AVAILABLE";
+        } 
 
         let fields = [
             {
@@ -143,7 +143,7 @@ async function handleServer(server: TF2Server) {
         const embed = new EmbedBuilder({
             title: title,
             url: (allowConnections ? `${config.connectURLBase}/${server.urlPath}` : undefined),
-            description: (sdr ? description + "\n" : "") + server.description,
+            description: (notice ? notice + "\n" : "") + server.description,
             timestamp: Date.now(),
             color: color,
             fields: fields
@@ -270,7 +270,7 @@ async function getResultsSDR(ip: string, port: number): Promise<Result> {
                     visibility: serverData?.response?.ping_data?.password ? "private" : "public",
                     VAC: serverData?.response?.ping_data?.secure
                 },
-                playerInfo: playerData?.response?.players_data?.players.map((player: any, index: number) => {
+                playerInfo: playerData?.response?.players_data?.players?.map((player: any, index: number) => {
                     return {
                         index,
                         name: player.name ?? "N/A",
@@ -282,7 +282,8 @@ async function getResultsSDR(ip: string, port: number): Promise<Result> {
             time: Date.now()
         };
     }
-    catch {
+    catch (err) {
+        console.log(err)
         console.error(`Error fetching SDR query for IP ${ip}`);
         return {
             err: "SDR QUERY FAILED",
@@ -429,7 +430,7 @@ const DISRUPTED = 0xffff00;
 const OFFLINE = 0xff0000;
 const FULL = 0x00ffaa;
 
-function getTitleAndColor(resultArchive: Result[], sdr: boolean): {title: string, description: string, color: number, allowConnections: boolean} {
+function getTitleAndColor(resultArchive: Result[]): {title: string, notice: string, color: number, allowConnections?: boolean, sdr: boolean} {
     let consecutivefailCount = 0;
     let mostRecentResult: Result | undefined = undefined;
 
@@ -442,14 +443,17 @@ function getTitleAndColor(resultArchive: Result[], sdr: boolean): {title: string
             break;
         }
     }
+
+    const sdr = mostRecentResult?.query?.info.address?.startsWith("169.254.") ?? false;
     
     // password protected
     if(consecutivefailCount < 2 && mostRecentResult?.query?.info.visibility === "private") {
         return {
             title: "Server is password-protected",
-            description: "**[SDR ON]: copy the connect string into TF2 console.**",
+            notice: "[PASSWORD]: The server is closed for now.",
             color: DISRUPTED,
-            allowConnections: false
+            allowConnections: false,
+            sdr
         }
     }
     // server is full
@@ -458,10 +462,11 @@ function getTitleAndColor(resultArchive: Result[], sdr: boolean): {title: string
         - mostRecentResult?.query?.info.players.bots
         === mostRecentResult?.query?.info.players.max) {
         return {
-            title: "Server is FULL!",
-            description: "**[SDR ON]: copy the connect string into TF2 console.**",
+            title: mostRecentResult?.query?.info.name,
+            notice: "[FULL]: The server has no room for you!",
             color: FULL,
-            allowConnections: false
+            allowConnections: false,
+            sdr
         }
     }
 
@@ -470,25 +475,28 @@ function getTitleAndColor(resultArchive: Result[], sdr: boolean): {title: string
             const color = mostRecentResult?.query && mostRecentResult?.query?.info.players.online - mostRecentResult?.query?.info.players.bots === 0 ? EMPTY : ACTIVE;
             return {
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
-                description: sdr ? "**[SDR ON]: copy the connect string into TF2 console.**" : "",
+                notice: sdr ? "[SDR ON]: Copy the connection string into TF2 console." : "[ONLINE] Click the server name to instantly connect.",
                 color: color,
-                allowConnections: !sdr
+                allowConnections: !sdr,
+                sdr
             }
         case 1:
             return {
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
-                description: sdr ? "**[SDR ON]: copy the connect string into TF2 console.**" : "",
+                notice: sdr ? "[SDR ON]: Copy the connection string into TF2 console." : "[ONLINE] Click the server name to instantly connect.",
                 color: DISRUPTED,
-                allowConnections: !sdr
+                allowConnections: !sdr,
+                sdr
             }
         default:
             return {
-                title: `Server is offline (failed ${
+                title: mostRecentResult?.query?.info.name ?? "Unavailable",
+                notice: `[OFFLINE] Server failed ${
                 consecutivefailCount > resultArchiveLimit ? `${resultArchiveLimit}+` : consecutivefailCount
-                    } queries)`,
-                description: sdr ? "**[SDR ON]: copy the new IP when the server restarts.**" : "",
+                    } consecutive queries.`,
                 color: OFFLINE,
-                allowConnections: false
+                allowConnections: false,
+                sdr
             }
     }
 }
