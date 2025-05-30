@@ -1,6 +1,9 @@
 import Discord, { TextChannel, ThreadAutoArchiveDuration, User, Message, Attachment, AttachmentBuilder, EmbedBuilder } from 'discord.js';
 import {Server} from '@fabricio-191/valve-server-query'
 import { startWebServer } from './webserver';
+import https from 'https';
+import axios from "axios";
+import { json } from 'stream/consumers';
 
 console.log("Starting process...")
 
@@ -38,6 +41,7 @@ export type Config = {
     connectURLBase: string,
     servers: TF2Server[],
     webPort: number,
+    steamApiKey: string | undefined,
     fastdlPath: string | undefined,
 }
 const queryInterval = 1 * 60 * 1000;
@@ -80,7 +84,16 @@ async function handleServer(server: TF2Server) {
         const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
         const result = await getResults(server.ip, server.port);
 
-        const connectString = server.connectString ?? `${server.ip}:${server.port}`;
+        let sdr = false;
+        let connectString = `${server.ip}:${server.port}`;
+        
+        if (result.query?.info.address?.startsWith("169.254.")) {
+            connectString = result.query?.info.address;
+            sdr = true;
+        } else if (server.connectString) {
+            connectString = server.connectString;
+        }
+
         if(!resultArchive.has(connectString)) {
             resultArchive.set(connectString, [result]);
         } else {
@@ -89,7 +102,7 @@ async function handleServer(server: TF2Server) {
 
         const results = resultArchive.get(connectString) ?? [];
 
-        const {title, color, allowConnections} = getTitleAndColor(results)
+        const { title, description, color, allowConnections } = getTitleAndColor(results, sdr);
 
         const pings = getPings(server, result);
 
@@ -130,7 +143,7 @@ async function handleServer(server: TF2Server) {
         const embed = new EmbedBuilder({
             title: title,
             url: (allowConnections ? `${config.connectURLBase}/${server.urlPath}` : undefined),
-            description: server.description,
+            description: (sdr ? description + "\n" : "") + server.description,
             timestamp: Date.now(),
             color: color,
             fields: fields
@@ -150,14 +163,42 @@ async function handleServer(server: TF2Server) {
 }
 
 interface Result {
-    query: {
+    query?: {
         info: Server.Info,
         playerInfo: Server.PlayerInfo[],
-    } | undefined
+    }
+    err?: string
     time: number
 }
 
 async function getResults(ip: string, port: number): Promise<Result> {
+
+    // If ip has no dots, assume it's a server's SteamID.
+    // need to get actual IP from Steam API.
+    if (!ip.includes(".")) {
+        const actualIP = await getIPfromSteamID(ip);
+        if (actualIP === undefined) {
+            return {
+                err: "NO API KEY",
+                time: Date.now()
+            }
+        } else if (actualIP === null) {
+            return {
+                err: "NO IP FROM STEAM ID",
+                time: Date.now()
+            }
+        } else {
+            ip = actualIP.ip;
+            port = actualIP.port;
+        }
+    }
+
+    // Handle SDR ips separately
+    if (ip.startsWith("169.254.")) {
+        return getResultsSDR(ip, port)
+    }
+
+    // Query
     let result: Result | undefined = undefined;
     try {
         const server = await Server({
@@ -175,14 +216,111 @@ async function getResults(ip: string, port: number): Promise<Result> {
         }
     } catch (err) {
         return {
-            query: undefined,
+            err: "QUERY FAILED",
             time: Date.now()
         };
     }
     return result;
 }
 
+async function getResultsSDR(ip: string, port: number): Promise<Result> {
+    // Need an API key to do this
+    if (!config.steamApiKey) {
+        return {
+            err: "NO API KEY",
+            time: Date.now()
+        };
+    }
+
+    // Convert IP to the format expected by Steam API
+    // e.g. 169.254.1.1 -> (169 * 256^3) + (254 * 256^2) + (1 * 256) + 1 = 2851995905
+    let decimalIp = ip.split(".").map(Number).reduce((acc, octet) => (acc << 8) + octet, 0);
+
+    let result: Result | undefined = undefined;
+
+    const baseQuery = `https://api.steampowered.com/IGameServersService/QueryByFakeIP/v1?key=${config.steamApiKey}&format=json` +
+        `&fake_ip=${decimalIp}&fake_port=${port}&app_id=440&query_type=`;
+    
+    const serverQuery = `${baseQuery}1`; // Get server info
+    const playerQuery = `${baseQuery}2`; // Get player info
+    
+    try {
+        const serverDataPromise = getSteamAPI(serverQuery)
+        const playerDataPromise = getSteamAPI(playerQuery)
+        const [serverData, playerData] = await Promise.all([serverDataPromise, playerDataPromise]);
+        result = {
+            query: {
+                info: {
+                    address: `${ip}:${port}`,
+                    ping: 0,
+                    protocol: 0,
+                    goldSource: false,
+                    name: serverData?.response?.ping_data?.server_name ?? "N/A",
+                    map: serverData?.response?.ping_data?.map ?? "N/A",
+                    folder: serverData?.response?.ping_data?.gamedir ?? "N/A",
+                    game: serverData?.response?.ping_data?.game_description ?? 0,
+                    appID: 440,
+                    players: {
+                        online: serverData?.response?.ping_data?.num_players ?? 0,
+                        max: serverData?.response?.ping_data?.max_players ?? 0,
+                        bots: serverData?.response?.ping_data?.num_bots ?? 0
+                    },
+                    type: serverData?.response?.ping_data?.dedicated ? "dedicated" : "non-dedicated",
+                    OS: 'linux',
+                    visibility: serverData?.response?.ping_data?.password ? "private" : "public",
+                    VAC: serverData?.response?.ping_data?.secure
+                },
+                playerInfo: playerData?.response?.players_data?.players.map((player: any, index: number) => {
+                    return {
+                        index,
+                        name: player.name ?? "N/A",
+                        timeOnline: player.time_played ?? 0,
+                        score: player.score ?? 0,
+                    } as Server.PlayerInfo;
+                }) ?? []
+            },
+            time: Date.now()
+        };
+    }
+    catch {
+        console.error(`Error fetching SDR query for IP ${ip}`);
+        return {
+            err: "SDR QUERY FAILED",
+            time: Date.now()
+        };
+    }
+
+    return result;
+}
+
 client.login(config.discordToken);
+
+// null if no IP found or query fails, undefined if no API key
+async function getIPfromSteamID(steamID: string): Promise<{ ip: string, port: number } | null | undefined> {
+    if (!config.steamApiKey) {
+        return undefined;
+    }
+
+    const query = `https://api.steampowered.com/IGameServersService/GetServerIPsBySteamID/v1?key=${config.steamApiKey}&format=json&input_json={"server_steamids":[${steamID}]}`;
+    
+    try {
+        const data = await getSteamAPI(query)
+        let ipPort = data?.response?.servers[0]?.addr ?? null;
+        if (ipPort === null) {
+            return null; // No IP found
+        }
+        const [ip, port] = ipPort.split(":");
+        return { ip: ip, port: parseInt(port) };
+    } catch {
+        console.error(`Error fetching IP for SteamID ${steamID}`);
+        return null;
+    }
+}
+
+async function getSteamAPI(query: string): Promise<any> {
+    const response = await axios.get(query);
+    return response.data;
+}
   
 function buildServerActivity(resultArchive: Result[], graphDensity: number = 4): string {
     while(resultArchive.length > resultArchiveLimit) {
@@ -207,7 +345,7 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = ' ' + (result.query ? (onlinePlayers.toString()) : "N/A").padStart(maxPlayers.toString().length, ' ') + '\n';
+        const playerCountString = ' ' + (result.query ? (onlinePlayers.toString()) : result.err ?? "UNKNOWN ERROR").padStart(maxPlayers.toString().length, ' ') + '\n';
 
         let playerGraphString = ""
 
@@ -285,7 +423,13 @@ function getPings(server: TF2Server, result: Result): string {
     return toPing.map(s => `<@&${s}>`).join(" ")
 }
 
-function getTitleAndColor(resultArchive: Result[]): {title: string, color: number, allowConnections: boolean} {
+const ACTIVE = 0x00ff00;
+const EMPTY = 0x008800;
+const DISRUPTED = 0xffff00;
+const OFFLINE = 0xff0000;
+const FULL = 0x00ffaa;
+
+function getTitleAndColor(resultArchive: Result[], sdr: boolean): {title: string, description: string, color: number, allowConnections: boolean} {
     let consecutivefailCount = 0;
     let mostRecentResult: Result | undefined = undefined;
 
@@ -301,26 +445,51 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, color: numbe
     
     // password protected
     if(consecutivefailCount < 2 && mostRecentResult?.query?.info.visibility === "private") {
-        return {title: "Server is password-protected", color: 0xffff00, allowConnections: false}
+        return {
+            title: "Server is password-protected",
+            description: "**[SDR ON]: copy the connect string into TF2 console.**",
+            color: DISRUPTED,
+            allowConnections: false
+        }
     }
     // server is full
     if(consecutivefailCount < 2 && mostRecentResult?.query &&
         mostRecentResult?.query?.info.players.online
         - mostRecentResult?.query?.info.players.bots
         === mostRecentResult?.query?.info.players.max) {
-            return {title: "Server is FULL!", color: 0x00ffaa, allowConnections: false}
+        return {
+            title: "Server is FULL!",
+            description: "**[SDR ON]: copy the connect string into TF2 console.**",
+            color: FULL,
+            allowConnections: false
+        }
     }
 
     switch (consecutivefailCount) {
         case 0:
-            const color = mostRecentResult?.query && mostRecentResult?.query?.info.players.online - mostRecentResult?.query?.info.players.bots === 0 ? 0x008800 : 0x00ff00;
-            return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: color, allowConnections: true}
+            const color = mostRecentResult?.query && mostRecentResult?.query?.info.players.online - mostRecentResult?.query?.info.players.bots === 0 ? EMPTY : ACTIVE;
+            return {
+                title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
+                description: sdr ? "**[SDR ON]: copy the connect string into TF2 console.**" : "",
+                color: color,
+                allowConnections: !sdr
+            }
         case 1:
-            return {title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...", color: 0xffff00, allowConnections: true}
+            return {
+                title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
+                description: sdr ? "**[SDR ON]: copy the connect string into TF2 console.**" : "",
+                color: DISRUPTED,
+                allowConnections: !sdr
+            }
         default:
-            return {title: `Server is offline (failed ${
+            return {
+                title: `Server is offline (failed ${
                 consecutivefailCount > resultArchiveLimit ? `${resultArchiveLimit}+` : consecutivefailCount
-            } queries)`, color: 0xff0000, allowConnections: false}
+                    } queries)`,
+                description: sdr ? "**[SDR ON]: copy the new IP when the server restarts.**" : "",
+                color: OFFLINE,
+                allowConnections: false
+            }
     }
 }
 
