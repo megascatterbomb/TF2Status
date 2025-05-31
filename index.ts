@@ -103,7 +103,7 @@ async function handleServer(server: TF2Server) {
         const pings = getPings(server, result);
 
         if (sdr) {
-            connectString = result.query?.info.address ?? "SDR IP NOT AVAILABLE";
+            connectString = result.query?.info.address ? "connect " + result.query?.info.address : "SDR IP NOT AVAILABLE";
         } else {
             connectString = `connect ${connectString}`;
         }
@@ -123,7 +123,7 @@ async function handleServer(server: TF2Server) {
             },
             {
                 name: "Connect via console:",
-                value: `\`connect ${connectString}\``,
+                value: `\`${connectString}\``,
                 inline: true
             }
         ];
