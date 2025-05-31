@@ -115,7 +115,7 @@ async function handleServer(server: TF2Server) {
                 inline: true
             },
             {
-                name: "Current Players:",
+                name: "Players:",
                 value: result.query
                     ? `${result.query?.info.players.online - result.query?.info.players.bots}/${result.query?.info.players.max}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`
                     : "N/A",
