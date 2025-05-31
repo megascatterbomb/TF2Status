@@ -104,7 +104,9 @@ async function handleServer(server: TF2Server) {
 
         if (sdr) {
             connectString = result.query?.info.address ?? "SDR IP NOT AVAILABLE";
-        } 
+        } else {
+            connectString = `connect ${connectString}`;
+        }
 
         let fields = [
             {
@@ -143,7 +145,7 @@ async function handleServer(server: TF2Server) {
         const embed = new EmbedBuilder({
             title: title,
             url: (allowConnections ? `${config.connectURLBase}/${server.urlPath}` : undefined),
-            description: (notice ? notice + "\n" : "") + server.description,
+            description: "\`\`\`" + server.description + (notice ?  "\n\n" + notice : "") + "\`\`\`",
             timestamp: Date.now(),
             color: color,
             fields: fields
@@ -450,7 +452,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
     if(consecutivefailCount < 2 && mostRecentResult?.query?.info.visibility === "private") {
         return {
             title: "Server is password-protected",
-            notice: "[PASSWORD]: The server is closed for now.",
+            notice: "[PASSWORD]: The server is password-protected for now.",
             color: DISRUPTED,
             allowConnections: false,
             sdr
