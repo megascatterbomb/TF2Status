@@ -110,6 +110,11 @@ async function handleServer(server: TF2Server) {
 
         let fields = [
             {
+                name: "Connect via console:",
+                value: `\`${connectString}\``,
+                inline: true
+            },
+            {
                 name: "Map:",
                 value: result.query?.info.map ?? "N/A",
                 inline: true
@@ -119,11 +124,6 @@ async function handleServer(server: TF2Server) {
                 value: result.query
                     ? `${result.query?.info.players.online - result.query?.info.players.bots}/${result.query?.info.players.max}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`
                     : "N/A",
-                inline: true
-            },
-            {
-                name: "Connect via console:",
-                value: `\`${connectString}\``,
                 inline: true
             }
         ];
@@ -477,7 +477,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
             const color = mostRecentResult?.query && mostRecentResult?.query?.info.players.online - mostRecentResult?.query?.info.players.bots === 0 ? EMPTY : ACTIVE;
             return {
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
-                notice: sdr ? "[SDR ON]: Copy the connection string into TF2 console." : "[ONLINE] Click the server name to instantly connect.",
+                notice: sdr ? "[SDR ON]: Connect using the console command below." : "[ONLINE] Click the server name to instantly connect.",
                 color: color,
                 allowConnections: !sdr,
                 sdr
@@ -485,7 +485,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
         case 1:
             return {
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
-                notice: sdr ? "[SDR ON]: Copy the connection string into TF2 console." : "[ONLINE] Click the server name to instantly connect.",
+                notice: sdr ? "[SDR ON]: Connect using the console command below." : "[ONLINE] Click the server name to instantly connect.",
                 color: DISRUPTED,
                 allowConnections: !sdr,
                 sdr
