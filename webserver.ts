@@ -14,10 +14,10 @@ export function startWebServer(config: Config) {
             if (!ip.includes(".")) {
                 const actualIP = await getIPfromSteamID(ip);
                 if (actualIP === undefined || actualIP === null) {
-                    res.status(500).send("Could not resolve server IP address.");
+                    res.status(500).send("<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>");
                     return;
                 } else if (actualIP.ip.startsWith("169.254.")) {
-                    res.status(200).send(`<h1> SDR is enabled: connect by typing "connect ${actualIP.ip}:${actualIP.port}" in your TF2 console. </h1>`);
+                    res.status(200).send(`<h1>SDR is enabled: connect by typing "connect ${actualIP.ip}:${actualIP.port}" in your TF2 console.</h1>`);
                     return;
                 } else {
                     ip = actualIP.ip;
