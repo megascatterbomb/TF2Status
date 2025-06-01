@@ -84,28 +84,31 @@ async function handleServer(server: TF2Server) {
         const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
         const result = await getResults(server.ip, server.port);
 
-        let connectString = `${server.ip}:${server.port}`;
+        let identity = `${server.ip}:${server.port}`;
         
         if (server.connectString) {
-            connectString = server.connectString;
+            identity = server.connectString;
         }
 
-        if(!resultArchive.has(connectString)) {
-            resultArchive.set(connectString, [result]);
+        if(!resultArchive.has(identity)) {
+            resultArchive.set(identity, [result]);
         } else {
-            resultArchive.get(connectString)?.push(result);
+            resultArchive.get(identity)?.push(result);
         }
 
-        const results = resultArchive.get(connectString) ?? [];
+        const results = resultArchive.get(identity) ?? [];
 
         const { title, notice, color, allowConnections, sdr } = getTitleAndColor(results);
 
         const pings = getPings(server, result);
 
+        let connectString = `${server.ip}:${server.port}`;
         if (sdr) {
             connectString = result.query?.info.address ? "connect " + result.query?.info.address : "SDR IP NOT AVAILABLE";
-        } else {
-            connectString = `connect ${connectString}`;
+        } else if (server.connectString) {
+            connectString = `connect ${server.connectString}`;
+        } else if (!server.ip.includes(".")) {
+            connectString = result.query?.info.address ? "connect " + result.query?.info.address : "IP NOT AVAILABLE";
         }
 
         let fields = [
@@ -299,7 +302,7 @@ async function getResultsSDR(ip: string, port: number): Promise<Result> {
 client.login(config.discordToken);
 
 // null if no IP found or query fails, undefined if no API key
-async function getIPfromSteamID(steamID: string): Promise<{ ip: string, port: number } | null | undefined> {
+export async function getIPfromSteamID(steamID: string): Promise<{ ip: string, port: number } | null | undefined> {
     if (!config.steamApiKey) {
         return undefined;
     }
@@ -479,7 +482,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
                 notice: sdr ? "[SDR ON]: Connect using the console command below." : "[ONLINE] Click the server name to instantly connect.",
                 color: color,
-                allowConnections: !sdr,
+                allowConnections: mostRecentResult && !sdr,
                 sdr
             }
         case 1:
@@ -487,7 +490,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
                 notice: sdr ? "[SDR ON]: Connect using the console command below." : "[ONLINE] Click the server name to instantly connect.",
                 color: DISRUPTED,
-                allowConnections: !sdr,
+                allowConnections: mostRecentResult && !sdr,
                 sdr
             }
         default:

@@ -1,14 +1,31 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
-import { Config } from ".";
+import { Config, getIPfromSteamID } from ".";
 
 
 export function startWebServer(config: Config) {
     const app = express();
     config.servers.forEach(server => {
-        app.get(`/tf2/${server.urlPath}`, (req: Request, res: Response) => {
-            res.redirect(`steam://connect/${server.ip}:${server.port}`);
+        app.get(`/tf2/${server.urlPath}`, async (req: Request, res: Response) => {
+
+            let ip = server.ip;
+            let port = server.port;
+            if (!ip.includes(".")) {
+                const actualIP = await getIPfromSteamID(ip);
+                if (actualIP === undefined || actualIP === null) {
+                    res.status(500).send("Could not resolve server IP address.");
+                    return;
+                } else if (actualIP.ip.startsWith("169.254.")) {
+                    res.status(200).send(`<h1> SDR is enabled: connect by typing "connect ${actualIP.ip}:${actualIP.port}" in your TF2 console. </h1>`);
+                    return;
+                } else {
+                    ip = actualIP.ip;
+                    port = actualIP.port;
+                }
+            }
+
+            res.redirect(`steam://connect/${ip}:${port}`);
         })
     });
     
