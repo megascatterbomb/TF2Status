@@ -86,6 +86,11 @@ button:disabled {
   opacity: 1;
 }
 
+.tutorial {
+  overflow: hidden; /* Prevents overflow */
+  max-width: 100%;           /* Prevents overflow beyond parent */
+}
+
 
 @media (prefers-color-scheme: light) {
   :root {

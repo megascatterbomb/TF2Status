@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import tutorial from './tutorial';
 
 type ServerQuery = {
   serverName: string;
@@ -129,6 +130,7 @@ const ServerStatusPage: React.FC = () => {
           </div>
         );
       })}
+      {tutorial()}
     </div>
   );
 };
