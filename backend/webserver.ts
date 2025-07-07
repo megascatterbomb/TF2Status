@@ -7,20 +7,28 @@ interface SimpleResult {
     serverName: string;
     onlinePlayers: number;
     maxPlayers: number;
+    password: boolean;
     map: string;
+    sdr: boolean
 }
 
 function serializeResultArchive(resultArchive: Map<string, Result[]>): string {
-    const simpleForm: Record<string, SimpleResult[]> = {};
+    const simpleForms: { id: string, result: SimpleResult[] }[] = [];
     resultArchive.forEach((resultArray, key) => {
-        simpleForm[key] = resultArray.map(result => transformResult(result)); // Take the first result for each server
+        simpleForms.push({id: key, result: resultArray.map(result => transformResult(key, result))});
     });
-    return JSON.stringify(simpleForm);
+    simpleForms.sort((a, b) => {
+        const aName = a.result[a.result.length - 1].serverName;
+        const bName = b.result[b.result.length - 1].serverName;
+
+        return aName.localeCompare(bName);
+    });
+    return JSON.stringify(simpleForms);
 }
 
-function transformResult(result: Result): SimpleResult {
+function transformResult(id: string, result: Result): SimpleResult {
 
-    const serverName = result.query?.info.name ?? "Unknown Server";
+    const serverName = result.query?.info.name ?? "Offline";
     const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
     const maxPlayers = result.query?.info.players.max ?? 0;
     const map = result.query?.info.map ?? "N/A";
@@ -29,7 +37,9 @@ function transformResult(result: Result): SimpleResult {
         serverName,
         onlinePlayers,
         maxPlayers,
-        map
+        map,
+        password: result.query?.info.visibility == "private",
+        sdr: id.startsWith("169.254.")
     }
 }
 
