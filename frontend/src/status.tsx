@@ -105,14 +105,13 @@ const ServerStatusPage: React.FC = () => {
     fetchData();
 
     const now = new Date();
-    const msUntilNextMinute = 60000 - (now.getSeconds() * 1000 + now.getMilliseconds());
-    const delay = msUntilNextMinute + 5000;
+    const nextRefreshDelay = 10000
 
     const timeout = setTimeout(() => {
       fetchData();
-      const interval = setInterval(fetchData, 60000);
+      const interval = setInterval(fetchData, nextRefreshDelay);
       return () => clearInterval(interval);
-    }, delay);
+    }, nextRefreshDelay);
 
     return () => clearTimeout(timeout);
   }, []);
