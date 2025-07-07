@@ -42,7 +42,7 @@ function transformResult(id: string, result: Result): SimpleResult {
         maxPlayers,
         map,
         password: result.query?.info.visibility == "private",
-        sdr: id.startsWith("169.254.")
+        sdr: serverAddress.startsWith("169.254.")
     }
 }
 
