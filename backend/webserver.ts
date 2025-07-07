@@ -46,5 +46,13 @@ export function startWebServer(config: Config) {
             res.sendStatus(503);
         }
     })
+
+    app.get("/*", (req: Request, res: Response) => {
+        let target = "index.html";
+        if (req.params[0]) {
+            target = req.params[0];
+        }
+        res.sendFile(path.join(__dirname, "../frontend/dist/" + target));
+    })
     app.listen(config.webPort);
 }
