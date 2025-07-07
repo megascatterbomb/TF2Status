@@ -4,6 +4,7 @@ type ServerQuery = {
     serverName: string;
     onlinePlayers: number;
     maxPlayers: number;
+    password: boolean;
     map: string;
     sdr: boolean;
 };
@@ -12,6 +13,27 @@ type ServerData = {
     id: string;
     result: ServerQuery[];
 };
+
+function getStatus(results: ServerQuery[]): string {
+    if (results.length === 0) return '🟡 Attempting to contact...';
+
+    const latest = results[results.length - 1];
+    if (latest.maxPlayers === 0) {
+        if (results.length === 1 || results[results.length - 2].maxPlayers === 0) {
+            return '🔴 Offline';
+        }
+        return '🟡 Interrupted';
+    }
+
+    if (latest.password) {
+        return '🔒 Password Protected';
+    }
+
+    if (latest.onlinePlayers === latest.maxPlayers) {
+        return '🔵 Full';
+    }
+    return '🟢 Online';
+}
 
 const ServerStatusPage: React.FC = () => {
     const [data, setData] = useState<ServerData[] | null>(null);
@@ -50,7 +72,7 @@ const ServerStatusPage: React.FC = () => {
                         <p><strong>Address:</strong> {id}</p>
                         <p><strong>Map:</strong> {latest.map}</p>
                         <p><strong>Players:</strong> {latest.onlinePlayers} / {latest.maxPlayers}</p>
-                        <p><strong>Status:</strong> {latest.onlinePlayers > 0 ? '🟢 Online' : '🔴 Offline'}</p>
+                        <p><strong>Status:</strong> {getStatus(result)}</p>
                     </div>
                 );
             })}
