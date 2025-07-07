@@ -1,4 +1,4 @@
-export default function tutorialComponent() {
+export default function Tutorial() {
   return (
     <div key="tutorial" style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
       <h2>How to connect via console:</h2>

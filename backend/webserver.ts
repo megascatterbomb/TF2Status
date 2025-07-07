@@ -1,7 +1,9 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
-import { Config, getIPfromSteamID, getResultsArchive, Result } from ".";
+import { Config, ExternalLink, getIPfromSteamID, getResultsArchive, Result } from ".";
+
+let config = require("./config.json") as Config;
 
 interface SimpleResult {
     serverName: string;
@@ -13,14 +15,22 @@ interface SimpleResult {
     sdr: boolean
 }
 
+interface APIQuery {
+    externalLinks: ExternalLink[],
+    servers: { id: string, results: SimpleResult[] }[]
+}
+
 function serializeResultArchive(resultArchive: Map<string, Result[]>): string {
-    const simpleForms: { id: string, result: SimpleResult[] }[] = [];
+    const simpleForms: APIQuery = {
+        externalLinks: config.externalLinks,
+        servers: []
+    };
     resultArchive.forEach((resultArray, key) => {
-        simpleForms.push({id: key, result: resultArray.map(result => transformResult(key, result))});
+        simpleForms.servers.push({id: key, results: resultArray.map(result => transformResult(key, result))});
     });
-    simpleForms.sort((a, b) => {
-        const aName = a.result[a.result.length - 1].serverName;
-        const bName = b.result[b.result.length - 1].serverName;
+    simpleForms.servers.sort((a, b) => {
+        const aName = a.results[a.results.length - 1].serverName;
+        const bName = b.results[b.results.length - 1].serverName;
 
         return aName.localeCompare(bName);
     });

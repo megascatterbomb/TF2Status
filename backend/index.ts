@@ -36,6 +36,12 @@ export type TF2Server = {
     pings: Ping[]
 }
 
+export type ExternalLink = {
+    title: string,
+    description: string,
+    url: string
+}
+
 export type Config = {
     discordToken: string,
     connectURLBase: string,
@@ -43,6 +49,7 @@ export type Config = {
     webPort: number,
     steamApiKey: string | undefined,
     fastdlPath: string | undefined,
+    externalLinks: ExternalLink[]
 }
 const queryInterval = 1 * 60 * 1000;
 const resultArchiveLimit = 100;
