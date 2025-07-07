@@ -5,6 +5,7 @@ import { Config, getIPfromSteamID, getResultsArchive, Result } from ".";
 
 interface SimpleResult {
     serverName: string;
+    serverAddress: string;
     onlinePlayers: number;
     maxPlayers: number;
     password: boolean;
@@ -28,13 +29,15 @@ function serializeResultArchive(resultArchive: Map<string, Result[]>): string {
 
 function transformResult(id: string, result: Result): SimpleResult {
 
-    const serverName = result.query?.info.name ?? "Offline";
+    const serverName = result.query?.info.name ?? "";
+    const serverAddress = result.query?.info.address ?? "";
     const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
     const maxPlayers = result.query?.info.players.max ?? 0;
     const map = result.query?.info.map ?? "N/A";
 
     return {
         serverName,
+        serverAddress,
         onlinePlayers,
         maxPlayers,
         map,

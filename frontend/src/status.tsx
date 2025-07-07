@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 type ServerQuery = {
     serverName: string;
+    serverAddress: string;
     onlinePlayers: number;
     maxPlayers: number;
     password: boolean;
@@ -40,7 +41,7 @@ const ServerStatusPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
+    const fetchData = () => {
         fetch('/api')
             .then((res) => {
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -54,6 +55,22 @@ const ServerStatusPage: React.FC = () => {
                 setError(err.message);
                 setLoading(false);
             });
+    };
+
+    useEffect(() => {
+        fetchData();
+
+        const now = new Date();
+        const msUntilNextMinute = 60000 - (now.getSeconds() * 1000 + now.getMilliseconds());
+        const delay = msUntilNextMinute + 5000;
+
+        const timeout = setTimeout(() => {
+            fetchData();
+            const interval = setInterval(fetchData, 60000);
+            return () => clearInterval(interval);
+        }, delay);
+
+        return () => clearTimeout(timeout);
     }, []);
 
     if (loading) return <p>Loading server status...</p>;
@@ -68,8 +85,8 @@ const ServerStatusPage: React.FC = () => {
                 const latest = result[result.length - 1];
                 return (
                     <div key={id} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
-                        <h2>{latest.serverName || 'Offline'}</h2>
-                        <p><strong>Address:</strong> {id}</p>
+                        <h2>{latest.serverName || 'Not Available'}</h2>
+                        <p><strong>Address:</strong> {latest.serverAddress || "N/A"}</p>
                         <p><strong>Map:</strong> {latest.map}</p>
                         <p><strong>Players:</strong> {latest.onlinePlayers} / {latest.maxPlayers}</p>
                         <p><strong>Status:</strong> {getStatus(result)}</p>
