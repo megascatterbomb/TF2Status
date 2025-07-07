@@ -1,8 +1,37 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
-import { Config, getIPfromSteamID } from ".";
+import { Config, getIPfromSteamID, getResultsArchive, Result } from ".";
 
+interface SimpleResult {
+    serverName: string;
+    onlinePlayers: number;
+    maxPlayers: number;
+    map: string;
+}
+
+function serializeResultArchive(resultArchive: Map<string, Result[]>): string {
+    const simpleForm: Record<string, SimpleResult[]> = {};
+    resultArchive.forEach((resultArray, key) => {
+        simpleForm[key] = resultArray.map(result => transformResult(result)); // Take the first result for each server
+    });
+    return JSON.stringify(simpleForm);
+}
+
+function transformResult(result: Result): SimpleResult {
+
+    const serverName = result.query?.info.name ?? "Unknown Server";
+    const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
+    const maxPlayers = result.query?.info.players.max ?? 0;
+    const map = result.query?.info.map ?? "N/A";
+
+    return {
+        serverName,
+        onlinePlayers,
+        maxPlayers,
+        map
+    }
+}
 
 export function startWebServer(config: Config) {
     const app = express();
@@ -44,6 +73,21 @@ export function startWebServer(config: Config) {
             res.download(assetPath);
         } else {
             res.sendStatus(503);
+        }
+    })
+
+    app.get("/api", (req: Request, res: Response) => {
+        const results = getResultsArchive();
+        if (results.size === 0) {
+            res.status(404).send("No results available");
+            return;
+        }
+        try {
+            const resultsSerialized = serializeResultArchive(results);
+            res.status(200).send(resultsSerialized);
+        } catch {
+            res.sendStatus(500);
+            return;
         }
     })
 

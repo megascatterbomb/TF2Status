@@ -57,8 +57,13 @@ const maxDisplay = 25; // 25 lines is the max that we show in a discord message 
 
 let resultArchive = new Map<string, Result[]>(); // Use connectString as key.
 
+export function getResultsArchive(): Map<string, Result[]> {
+    return resultArchive;
+}
+
+export let lastUpdateTime: number | undefined = undefined;
+
 async function mainLoop() {
-    let prevtime: number | undefined = undefined;
 
     config.servers.forEach(server => {
         server.pings.sort((a, b) => a.threshold - b.threshold);
@@ -74,7 +79,7 @@ async function mainLoop() {
         const time2 = Date.now();
         const nextInterval = (Math.floor(time2 / queryInterval) * queryInterval) + queryInterval
         await new Promise(r => setTimeout(r, nextInterval - time2));
-        prevtime = time;
+        lastUpdateTime = time;
     }
 }
 
@@ -167,7 +172,7 @@ async function handleServer(server: TF2Server) {
     }
 }
 
-interface Result {
+export interface Result {
     query?: {
         info: Server.Info,
         playerInfo: Server.PlayerInfo[],
