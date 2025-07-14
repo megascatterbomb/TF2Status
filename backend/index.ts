@@ -68,6 +68,24 @@ export function getResultsArchive(): Map<string, Result[]> {
     return resultArchive;
 }
 
+export let redirectIP: string | undefined = undefined;
+
+async function getConnectLinkSDR(sdrString: string): Promise<string | undefined> {
+    if (!redirectIP) {
+        try {
+            const response = await axios.get(`https://potato.tf/api/serverstatus/redirect`, {
+                timeout: 5000,
+            });
+            const rip = response.data;
+            redirectIP = rip;
+        } catch (error) {
+            console.error("Error fetching Potato.tf redirect IP:", error);
+            return undefined;
+        }
+    }
+    return `https://potato.tf/connect/${redirectIP}/dest=${sdrString}`;
+}
+
 export let lastUpdateTime: number | undefined = undefined;
 
 async function mainLoop() {
@@ -157,9 +175,18 @@ async function handleServer(server: TF2Server) {
             inline: false
         });
 
+        let url: string | undefined = undefined;
+        if (allowConnections) {
+            if (sdr) {
+                url = await getConnectLinkSDR(`${server.ip}:${server.port}`);
+            } else {
+                url = `${config.connectURLBase}/${server.urlPath}`;
+            }
+        }
+
         const embed = new EmbedBuilder({
             title: title,
-            url: (allowConnections ? `${config.connectURLBase}/${server.urlPath}` : undefined),
+            url,
             description: "\`\`\`" + server.description + (notice ?  "\n\n" + notice : "") + "\`\`\`",
             timestamp: Date.now(),
             color: color,
@@ -477,7 +504,8 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
     if(consecutivefailCount < 2 && mostRecentResult?.query &&
         mostRecentResult?.query?.info.players.online
         - mostRecentResult?.query?.info.players.bots
-        === mostRecentResult?.query?.info.players.max) {
+        === mostRecentResult?.query?.info.players.max &&
+        mostRecentResult?.query?.info.players.max > 0) {
         return {
             title: mostRecentResult?.query?.info.name,
             notice: "[FULL]: The server has no room for you!",
@@ -494,7 +522,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
                 notice: sdr ? "[SDR ON]: Connect using the console command below." : "[ONLINE] Click the server name to instantly connect.",
                 color: color,
-                allowConnections: mostRecentResult && !sdr,
+                allowConnections: !!mostRecentResult,
                 sdr
             }
         case 1:
@@ -502,7 +530,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
                 notice: sdr ? "[SDR ON]: Connect using the console command below." : "[ONLINE] Click the server name to instantly connect.",
                 color: DISRUPTED,
-                allowConnections: mostRecentResult && !sdr,
+                allowConnections: !!mostRecentResult,
                 sdr
             }
         default:

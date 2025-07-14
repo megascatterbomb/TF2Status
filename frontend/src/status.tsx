@@ -22,6 +22,7 @@ type ServerData = {
 type APIQuery = {
   externalLinks: ExternalLink[];
   servers: ServerData[];
+  redirectIP?: string;
 }
 
 function getStatus(results: ServerResult[]): string {
@@ -45,17 +46,21 @@ function getStatus(results: ServerResult[]): string {
   return '🟢 Online';
 }
 
-function getButtons(serverAddress: string, sdr: boolean): React.ReactNode {
+function getButtons(serverAddress: string, sdr: boolean, redirectIP?: string): React.ReactNode {
   const tooltipText = "You need to use the console command to connect to this server.";
+  const disabled = !serverAddress || (sdr && !redirectIP);
   return (
     <>
       <div style={{ display: "flex", gap: "1rem", justifyContent: 'center' }}>
       <div className="tooltip-wrapper">
         <button
-          className={sdr ? "disabled" : ""}
-          disabled={sdr}
-          onClick={() => {
-            if (serverAddress) {
+          className={disabled ? "disabled" : ""}
+          disabled={disabled}
+            onClick={() => {
+            if (!serverAddress) return;
+            if (sdr) { // use potato.tf redirect server.
+              window.location.href = `https://potato.tf/connect/${redirectIP}/dest=${serverAddress}`
+            } else {
               window.location.href = `steam://connect/${serverAddress}`;
             }
           }}
@@ -104,7 +109,6 @@ const ServerStatusPage: React.FC = () => {
   useEffect(() => {
     fetchData();
 
-    const now = new Date();
     const nextRefreshDelay = 10000
 
     const timeout = setTimeout(() => {
@@ -133,7 +137,7 @@ const ServerStatusPage: React.FC = () => {
             <p><strong>Map:</strong> {latest.map}</p>
             <p><strong>Players:</strong> {latest.onlinePlayers} / {latest.maxPlayers}</p>
             <p><strong>Status:</strong> {getStatus(results)}</p>
-            {getButtons(latest.serverAddress, latest.sdr)}
+            {getButtons(latest.serverAddress, latest.sdr, data.redirectIP)}
           </div>
         );
       })}

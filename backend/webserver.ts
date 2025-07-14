@@ -1,7 +1,7 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
-import { Config, ExternalLink, getIPfromSteamID, getResultsArchive, Result } from ".";
+import { Config, ExternalLink, getIPfromSteamID, getResultsArchive, redirectIP, Result } from ".";
 
 let config = require("./config.json") as Config;
 
@@ -17,13 +17,15 @@ interface SimpleResult {
 
 interface APIQuery {
     externalLinks: ExternalLink[],
-    servers: { id: string, results: SimpleResult[] }[]
+    servers: { id: string, results: SimpleResult[] }[],
+    redirectIP?: string
 }
 
-function serializeResultArchive(resultArchive: Map<string, Result[]>): string {
+function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
     const simpleForms: APIQuery = {
         externalLinks: config.externalLinks,
-        servers: []
+        servers: [],
+        redirectIP
     };
     resultArchive.forEach((resultArray, key) => {
         simpleForms.servers.push({id: key, results: resultArray.map(result => transformResult(key, result))});
@@ -34,7 +36,7 @@ function serializeResultArchive(resultArchive: Map<string, Result[]>): string {
 
         return aName.localeCompare(bName);
     });
-    return JSON.stringify(simpleForms);
+    return simpleForms;
 }
 
 function transformResult(id: string, result: Result): SimpleResult {
@@ -106,8 +108,8 @@ export function startWebServer(config: Config) {
             return;
         }
         try {
-            const resultsSerialized = serializeResultArchive(results);
-            res.status(200).send(resultsSerialized);
+            const resultsJSON = jsonResultsArchive(results);
+            res.status(200).send(resultsJSON);
         } catch {
             res.sendStatus(500);
             return;
