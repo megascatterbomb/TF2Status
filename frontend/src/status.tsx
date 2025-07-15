@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import tutorial from './tutorial';
 import type { ExternalLink } from './externalLinks';
 import externalLinks from './externalLinks';
+import axios from 'axios';
 
 type ServerResult = {
   serverName: string;
@@ -33,7 +34,7 @@ function getStatus(results: ServerResult[]): string {
     if (results.length === 1 || results[results.length - 2].maxPlayers === 0) {
       return '🔴 Offline';
     }
-    return '🟡 Interrupted';
+    return '🟡 Disrupted';
   }
 
   if (latest.password) {
@@ -52,24 +53,24 @@ function getButtons(serverAddress: string, sdr: boolean, redirectIP?: string): R
   return (
     <>
       <div style={{ display: "flex", gap: "1rem", justifyContent: 'center' }}>
-      <div className="tooltip-wrapper">
-        <button
-          className={disabled ? "disabled" : ""}
-          disabled={disabled}
+        <div className="tooltip-wrapper">
+          <button
+            className={disabled ? "disabled" : ""}
+            disabled={disabled}
             onClick={() => {
-            if (!serverAddress) return;
-            if (sdr) { // use potato.tf redirect server.
-              window.location.href = `https://potato.tf/connect/${redirectIP}/dest=${serverAddress}`
-            } else {
-              window.location.href = `steam://connect/${serverAddress}`;
-            }
-          }}
-        >
-          Join server
-        </button>
+              if (!serverAddress) return;
+              if (sdr) { // use potato.tf redirect server
+                window.open(`https://potato.tf/connect/${redirectIP}/dest=${serverAddress}`, '_blank');
+              } else {
+                window.open(`steam://connect/${serverAddress}`, '_blank');
+              }
+            }}
+          >
+            Join server
+          </button>
 
-        {sdr && <span className="tooltip">{tooltipText}</span>}
-      </div>
+          {disabled && <span className="tooltip">{tooltipText}</span>}
+        </div>
         <button
           onClick={() => {
             if (serverAddress) {
@@ -86,18 +87,14 @@ function getButtons(serverAddress: string, sdr: boolean, redirectIP?: string): R
 
 
 const ServerStatusPage: React.FC = () => {
-  const [data, setData] = useState<APIQuery| null>(null);
+  const [data, setData] = useState<APIQuery | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = () => {
-    fetch('/api')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then((json: APIQuery) => {
-        setData(json);
+    axios.get<APIQuery>('/api')
+      .then((response) => {
+        setData(response.data);
         setLoading(false);
       })
       .catch((err) => {
@@ -121,7 +118,7 @@ const ServerStatusPage: React.FC = () => {
   }, []);
 
   if (loading) return <p>Loading server status...</p>;
-  if (error) return <p>Error loading data: {error}<br/>Try refreshing in a couple seconds.</p>;
+  if (error) return <p>Error loading data: {error}<br />Try refreshing in a couple seconds.</p>;
   if (!data) return <p>No data available.</p>;
 
   return (

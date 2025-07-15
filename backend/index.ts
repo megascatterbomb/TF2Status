@@ -520,7 +520,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
             const color = mostRecentResult?.query && mostRecentResult?.query?.info.players.online - mostRecentResult?.query?.info.players.bots === 0 ? EMPTY : ACTIVE;
             return {
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
-                notice: sdr ? "[SDR ON]: Connect using the console command below." : "[ONLINE] Click the server name to instantly connect.",
+                notice: "[ONLINE] Click the server name to instantly connect.",
                 color: color,
                 allowConnections: !!mostRecentResult,
                 sdr
@@ -528,9 +528,9 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
         case 1:
             return {
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
-                notice: sdr ? "[SDR ON]: Connect using the console command below." : "[ONLINE] Click the server name to instantly connect.",
+                notice: "[DISRUPTED]: The server may be changing maps.",
                 color: DISRUPTED,
-                allowConnections: !!mostRecentResult,
+                allowConnections: false,
                 sdr
             }
         default:
