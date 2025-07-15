@@ -132,14 +132,15 @@ async function handleServer(server: TF2Server) {
 
         const pings = getPings(server, result);
 
-        let connectString = `${server.ip}:${server.port}`;
+        let ipString = `${server.ip}:${server.port}`;
         if (sdr) {
-            connectString = result.query?.info.address ? "connect " + result.query?.info.address : "SDR IP NOT AVAILABLE";
+            ipString = result.query?.info.address ? result.query?.info.address : "SDR IP NOT AVAILABLE";
         } else if (server.connectString) {
-            connectString = `connect ${server.connectString}`;
+            ipString = server.connectString;
         } else if (!server.ip.includes(".")) {
-            connectString = result.query?.info.address ? "connect " + result.query?.info.address : "IP NOT AVAILABLE";
+            ipString = result.query?.info.address ? result.query?.info.address : "IP NOT AVAILABLE";
         }
+        let connectString = "connect " + ipString;
 
         let fields = [
             {
@@ -178,7 +179,7 @@ async function handleServer(server: TF2Server) {
         let url: string | undefined = undefined;
         if (allowConnections) {
             if (sdr) {
-                url = await getConnectLinkSDR(`${server.ip}:${server.port}`);
+                url = await getConnectLinkSDR(ipString);
             } else {
                 url = `${config.connectURLBase}/${server.urlPath}`;
             }
