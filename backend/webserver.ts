@@ -1,7 +1,7 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
-import { Config, ExternalLink, getIPfromSteamID, getResultsArchive, redirectIP, Result } from ".";
+import { Config, ExternalLink, getConnectLinkSDR, getIPfromSteamID, getResultsArchive, redirectIP, Result } from ".";
 
 let config = require("./config.json") as Config;
 
@@ -71,7 +71,13 @@ export function startWebServer(config: Config) {
                     res.status(500).send("<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>");
                     return;
                 } else if (actualIP.ip.startsWith("169.254.")) {
-                    res.status(200).send(`<h1>SDR is enabled: connect by typing "connect ${actualIP.ip}:${actualIP.port}" in your TF2 console.</h1>`);
+                    const sdrLink = await getConnectLinkSDR(`${actualIP.ip}:${actualIP.port}`);
+                    if (!sdrLink) {
+                        res.status(500).send("<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>");
+                        return;
+                    }
+                    console.log("Redirecting to SDR link: "+sdrLink);
+                    res.redirect(sdrLink);
                     return;
                 } else {
                     ip = actualIP.ip;
