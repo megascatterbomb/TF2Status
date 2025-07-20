@@ -202,6 +202,8 @@ async function handleServer(server: TF2Server) {
             } 
             await channel.send({content: pings, embeds: [embed]})
         }
+
+        console.log(`Updated server ${server.urlPath} (${server.ip}:${server.port}) at ${new Date().toLocaleTimeString()}`);
     } catch (err) {
         console.log("shit hit the fan: " + err);
     }

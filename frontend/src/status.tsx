@@ -47,9 +47,9 @@ function getStatus(results: ServerResult[]): string {
   return '🟢 Online';
 }
 
-function getButtons(serverAddress: string, sdr: boolean, redirectIP?: string): React.ReactNode {
-  const tooltipText = "You need to use the console command to connect to this server.";
-  const disabled = !serverAddress || (sdr && !redirectIP);
+function getButtons(serverAddress: string, sdr: boolean, onlinePlayers: number, maxplayers: number, redirectIP: string | undefined): React.ReactNode {
+  const tooltipText = "You cannot connect to this server right now.";
+  const disabled = !serverAddress || (sdr && !redirectIP) || onlinePlayers == maxplayers;
   return (
     <>
       <div style={{ display: "flex", gap: "1rem", justifyContent: 'center' }}>
@@ -134,7 +134,7 @@ const ServerStatusPage: React.FC = () => {
             <p><strong>Map:</strong> {latest.map}</p>
             <p><strong>Players:</strong> {latest.onlinePlayers} / {latest.maxPlayers}</p>
             <p><strong>Status:</strong> {getStatus(results)}</p>
-            {getButtons(latest.serverAddress, latest.sdr, data.redirectIP)}
+            {getButtons(latest.serverAddress, latest.sdr, latest.onlinePlayers, latest.maxPlayers, data.redirectIP)}
           </div>
         );
       })}

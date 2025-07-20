@@ -31,8 +31,8 @@ function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
         simpleForms.servers.push({id: key, results: resultArray.map(result => transformResult(key, result))});
     });
     simpleForms.servers.sort((a, b) => {
-        const aName = a.results[a.results.length - 1].serverName;
-        const bName = b.results[b.results.length - 1].serverName;
+        const aName = a.results.reduceRight((prev, curr) => curr.serverName || prev, "");
+        const bName = b.results.reduceRight((prev, curr) => curr.serverName || prev, "");
 
         return aName.localeCompare(bName);
     });
@@ -65,6 +65,8 @@ export function startWebServer(config: Config) {
 
             let ip = server.ip;
             let port = server.port;
+            const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
+
             if (!ip.includes(".")) {
                 const actualIP = await getIPfromSteamID(ip);
                 if (actualIP === undefined || actualIP === null) {
@@ -76,16 +78,17 @@ export function startWebServer(config: Config) {
                         res.status(500).send("<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>");
                         return;
                     }
-                    console.log("Redirecting to SDR link: "+sdrLink);
                     res.redirect(sdrLink);
+                    console.log(`Redirected ${requesterIP} to ${sdrLink}`);
                     return;
                 } else {
                     ip = actualIP.ip;
                     port = actualIP.port;
                 }
             }
-
-            res.redirect(`steam://connect/${ip}:${port}`);
+            const steamLink = `steam://connect/${ip}:${port}`;
+            res.redirect(steamLink);
+            console.log(`Redirected ${requesterIP} to ${steamLink}`);
         })
     });
     
@@ -101,7 +104,9 @@ export function startWebServer(config: Config) {
                 res.sendStatus(404);
                 return;
             }
+            const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
             res.download(assetPath);
+            console.log(`Served asset ${req.params[0]} to ${requesterIP}`);
         } else {
             res.sendStatus(503);
         }
@@ -114,8 +119,10 @@ export function startWebServer(config: Config) {
             return;
         }
         try {
+            const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
             const resultsJSON = jsonResultsArchive(results);
             res.status(200).send(resultsJSON);
+            console.log(`Served API data to ${requesterIP}`);
         } catch {
             res.sendStatus(500);
             return;
@@ -126,6 +133,9 @@ export function startWebServer(config: Config) {
         let target = "index.html";
         if (req.params[0]) {
             target = req.params[0];
+        } else {
+            const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
+            console.log("Serving main site to " + requesterIP);
         }
         res.sendFile(path.join(__dirname, "../frontend/dist/" + target));
     })
