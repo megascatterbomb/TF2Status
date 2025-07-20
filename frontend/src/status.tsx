@@ -127,14 +127,20 @@ const ServerStatusPage: React.FC = () => {
       {data.servers.map((d) => {
         const { id, results } = d;
         const latest = results[results.length - 1];
+        const latestValid = results.reduce((prev, curr) => {
+          if (curr.maxPlayers > 0) {
+            return curr;
+          }
+          return prev;
+        });
         return (
           <div key={id} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
-            <h2>{latest.serverName || 'Not Available'}</h2>
-            <p><strong>Address:</strong> {latest.serverAddress || "N/A"}</p>
+            <h2>{latestValid.serverName || 'Not Available'}</h2>
+            <p><strong>Address:</strong> {latestValid.serverAddress || "N/A"}</p>
             <p><strong>Map:</strong> {latest.map}</p>
             <p><strong>Players:</strong> {latest.onlinePlayers} / {latest.maxPlayers}</p>
             <p><strong>Status:</strong> {getStatus(results)}</p>
-            {getButtons(latest.serverAddress, latest.sdr, latest.onlinePlayers, latest.maxPlayers, data.redirectIP)}
+            {getButtons(latestValid.serverAddress, latest.sdr, latest.onlinePlayers, latest.maxPlayers, data.redirectIP)}
           </div>
         );
       })}

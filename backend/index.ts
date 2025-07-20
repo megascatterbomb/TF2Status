@@ -134,11 +134,11 @@ async function handleServer(server: TF2Server) {
 
         let ipString = `${server.ip}:${server.port}`;
         if (sdr) {
-            ipString = result.query?.info.address ? result.query?.info.address : "SDR IP NOT AVAILABLE";
+            ipString = result.query?.info.address || "SDR IP NOT AVAILABLE";
         } else if (server.connectString) {
             ipString = server.connectString;
         } else if (!server.ip.includes(".")) {
-            ipString = result.query?.info.address ? result.query?.info.address : "IP NOT AVAILABLE";
+            ipString = result.query?.info.address || "IP NOT AVAILABLE";
         }
         let connectString = "connect " + ipString;
 
@@ -203,7 +203,7 @@ async function handleServer(server: TF2Server) {
             await channel.send({content: pings, embeds: [embed]})
         }
 
-        console.log(`Updated server ${server.urlPath} (${server.ip}:${server.port}) at ${new Date().toLocaleTimeString()}`);
+        console.log(`Updated server ${server.urlPath} (${ipString}) at ${new Date().toLocaleTimeString()}`);
     } catch (err) {
         console.log("shit hit the fan: " + err);
     }
