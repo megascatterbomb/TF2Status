@@ -13,10 +13,44 @@ const client = new Discord.Client({
     intents: []
 });
 
+function shutdown(signal: string) {
+    console.log(`Received ${signal}, performing graceful exit...`);
+    sendShutdownMessages().then(() => {
+        process.exit(0);
+    }).catch(err => {
+        console.error("Error during shutdown:", err);
+        process.exit(1);
+    });
+}
+
+async function sendShutdownMessages() {
+    await Promise.allSettled(config.servers.map(async server => {
+        const channel = client.channels.cache.get(server.channelID) as TextChannel;
+        const lastMessage = (await channel.messages.fetch({ limit: 1 })).first()
+        if (channel) {
+            const embed = new EmbedBuilder({
+                title: "TF2 Status Discord bot is offline",
+                description: "\`\`\`Server information is not available at this time.\`\`\`",
+                timestamp: Date.now(),
+                color: OFFLINE,
+            })
+            if (lastMessage && lastMessage.author.id === client.user?.id) {
+                await lastMessage.edit({embeds: [embed]})
+            } else {
+                await channel.send({embeds: [embed]})
+            }
+        } else {
+            console.error(`Channel with ID ${server.channelID} not found.`);
+        }
+    }))
+}
+
 client.on('ready', () => {
-  console.log(`Logged in as ${client.user?.tag}!`);
-  mainLoop();
-  startWebServer(config);
+    console.log(`Logged in as ${client.user?.tag}!`);
+    mainLoop();
+    startWebServer(config);
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
 });
 
 export type Ping = {
@@ -564,4 +598,3 @@ function buildPingActivity(server: TF2Server): string {
 
     return "```" + server.pings.map(ping => buildRow(ping)).join("\n") + "```"
 }
-
