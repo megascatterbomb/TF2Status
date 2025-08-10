@@ -212,11 +212,7 @@ async function handleServer(server: TF2Server) {
 
         let url: string | undefined = undefined;
         if (allowConnections) {
-            if (sdr) {
-                url = await getConnectLinkSDR(ipString);
-            } else {
-                url = `${config.connectURLBase}/${server.urlPath}`;
-            }
+            url = `${config.connectURLBase}/${server.urlPath}`;
         }
 
         const embed = new EmbedBuilder({
