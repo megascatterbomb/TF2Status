@@ -104,7 +104,7 @@ export function getResultsArchive(): Map<string, Result[]> {
 
 export let redirectIP: string | undefined = undefined;
 
-export async function getConnectLinkSDR(sdrString: string): Promise<string | undefined> {
+async function getRedirectIP() {
     if (!redirectIP) {
         try {
             const response = await axios.get(`https://potato.tf/api/serverstatus/redirect`, {
@@ -117,6 +117,13 @@ export async function getConnectLinkSDR(sdrString: string): Promise<string | und
             return undefined;
         }
     }
+    return redirectIP;
+}
+
+getRedirectIP();
+
+export async function getConnectLinkSDR(sdrString: string): Promise<string | undefined> {
+    if (!redirectIP) await getRedirectIP();
     return `https://potato.tf/connect/${redirectIP}/dest=${sdrString}`;
 }
 
