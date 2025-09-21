@@ -14,7 +14,7 @@ const client = new Discord.Client({
 });
 
 function shutdown(signal: string) {
-    console.log(`Received ${signal}, performing graceful exit...`);
+    console.log(`Received ${signal}, clearing all status messages...`);
     sendShutdownMessages().then(() => {
         process.exit(0);
     }).catch(err => {
@@ -78,7 +78,7 @@ export type ExternalLink = {
 
 export type Config = {
     discordToken: string,
-    connectURLBase: string,
+    urlBase: string,
     servers: TF2Server[],
     webPort: number,
     steamApiKey: string | undefined,
@@ -124,6 +124,7 @@ getRedirectIP();
 
 export async function getConnectLinkSDR(sdrString: string): Promise<string | undefined> {
     if (!redirectIP) await getRedirectIP();
+    if (!redirectIP) return undefined;
     return `https://potato.tf/connect/${redirectIP}/dest=${sdrString}`;
 }
 
@@ -219,7 +220,7 @@ async function handleServer(server: TF2Server) {
 
         let url: string | undefined = undefined;
         if (allowConnections) {
-            url = `${config.connectURLBase}/${server.urlPath}`;
+            url = `${config.urlBase}/tf2/${server.urlPath}`;
         }
 
         const embed = new EmbedBuilder({

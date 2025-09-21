@@ -75,7 +75,11 @@ export function startWebServer(config: Config) {
                 } else if (actualIP.ip.startsWith("169.254.")) {
                     const sdrLink = await getConnectLinkSDR(`${actualIP.ip}:${actualIP.port}`);
                     if (!sdrLink) {
-                        res.status(500).send("<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>");
+                        res.status(500).send(
+                            "<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>"
+                            + `<p>If the issue persists, try connecting through console with the command <code>connect ${actualIP.ip}:${actualIP.port}</code></p>`
+                            + `<p>If that fails, check the server status <a href="${config.urlBase}">here</a>.</p>`
+                        );
                         return;
                     }
                     res.redirect(sdrLink);
