@@ -96,6 +96,9 @@ const maxCharsLine = 49;
 const maxQueries = 21; // 21 queries is the max that we show in a discord message.
 const maxDisplay = 25; // 25 lines is the max that we show in a discord message (including map names)
 
+const redirectIPFetchInterval = 60 * 1000;
+const redirectIPTimeout = 5000; 
+
 let resultArchive = new Map<string, Result[]>(); // Use connectString as key.
 
 export function getResultsArchive(): Map<string, Result[]> {
@@ -103,27 +106,29 @@ export function getResultsArchive(): Map<string, Result[]> {
 }
 
 export let redirectIP: string | undefined = undefined;
+let redirectIPLastFetchTime: number = 0;
 
-async function getRedirectIP() {
-    if (!redirectIP) {
+async function fetchRedirectIP() {
+    const now = Date.now();
+    if ((!redirectIP && now - redirectIPLastFetchTime > redirectIPTimeout) || now - redirectIPLastFetchTime > redirectIPFetchInterval) {
+        redirectIPLastFetchTime = now;
         try {
             const response = await axios.get(`https://potato.tf/api/serverstatus/redirect`, {
-                timeout: 5000,
+                timeout: redirectIPTimeout,
             });
             const rip = response.data;
             redirectIP = rip;
         } catch (error) {
-            console.error("Error fetching Potato.tf redirect IP:", error);
-            return undefined;
+            console.error("Error fetching Potato.tf redirect IP");
+            redirectIP = undefined;
         }
     }
-    return redirectIP;
 }
 
-getRedirectIP();
+fetchRedirectIP();
 
 export async function getConnectLinkSDR(sdrString: string): Promise<string | undefined> {
-    if (!redirectIP) await getRedirectIP();
+    await fetchRedirectIP();
     if (!redirectIP) return undefined;
     return `https://potato.tf/connect/${redirectIP}/dest=${sdrString}`;
 }
