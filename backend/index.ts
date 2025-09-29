@@ -99,7 +99,7 @@ const maxDisplay = 25; // 25 lines is the max that we show in a discord message 
 const redirectIPFetchInterval = 60 * 1000;
 const redirectIPTimeout = 5000; 
 
-let resultArchive = new Map<string, Result[]>(); // Use connectString as key.
+let resultArchive = new Map<string, Result[]>(); // Use urlPath as key.
 
 export function getResultsArchive(): Map<string, Result[]> {
     return resultArchive;
@@ -161,11 +161,7 @@ async function handleServer(server: TF2Server) {
         const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
         const result = await getResults(server.ip, server.port);
 
-        let identity = `${server.ip}:${server.port}`;
-        
-        if (server.connectString) {
-            identity = server.connectString;
-        }
+        let identity = server.urlPath;
 
         if(!resultArchive.has(identity)) {
             resultArchive.set(identity, [result]);

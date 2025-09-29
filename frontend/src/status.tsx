@@ -16,13 +16,14 @@ type ServerResult = {
 };
 
 type ServerData = {
-  id: string;
+  urlPath: string;
   results: ServerResult[];
 };
 
 type APIQuery = {
   externalLinks: ExternalLink[];
   servers: ServerData[];
+  urlBase: string;
   redirectIP?: string;
 }
 
@@ -47,39 +48,48 @@ function getStatus(results: ServerResult[]): string {
   return '🟢 Online';
 }
 
-function getButtons(serverAddress: string, sdr: boolean, onlinePlayers: number, maxplayers: number, redirectIP: string | undefined): React.ReactNode {
-  const tooltipText = "You cannot connect to this server right now.";
-  const disabled = !serverAddress || (sdr && !redirectIP) || onlinePlayers == maxplayers;
+function getButtons(serverAddress: string, urlBase: string, urlPath: string, connectLinkDisabled: boolean, addressUnavailable: boolean): React.ReactNode {
+  const connectCommand = serverAddress ? `connect ${serverAddress}` : "Server address not available.";
+  const connectLink = `${urlBase}/tf2/${urlPath}`;
+
   return (
     <>
       <div style={{ display: "flex", gap: "1rem", justifyContent: 'center' }}>
         <div className="tooltip-wrapper">
           <button
-            className={disabled ? "disabled" : ""}
-            disabled={disabled}
+            className={connectLinkDisabled ? "disabled" : ""}
+            disabled={connectLinkDisabled}
             onClick={() => {
-              if (!serverAddress) return;
-              if (sdr) { // use potato.tf redirect server
-                window.open(`https://potato.tf/connect/${redirectIP}/dest=${serverAddress}`, '_blank');
-              } else {
-                window.open(`steam://connect/${serverAddress}`, '_blank');
-              }
+              window.open(`${connectLink}`, '_blank');
             }}
           >
-            Join server
+            Connect to server
           </button>
 
-          {disabled && <span className="tooltip">{tooltipText}</span>}
+          {<span className="tooltip">{connectLinkDisabled ? "You cannot connect to this server right now." : "Click to launch TF2 and connect directly to server."}</span>}
         </div>
-        <button
-          onClick={() => {
-            if (serverAddress) {
-              navigator.clipboard.writeText(`connect ${serverAddress}`)
-            }
-          }}
-        >
-          Copy connect command
-        </button>
+        <div className="tooltip-wrapper">
+          <button
+            className={addressUnavailable ? "disabled" : ""}
+            disabled={addressUnavailable}
+            onClick={() => {
+                navigator.clipboard.writeText(connectCommand)
+            }}
+          >
+            Copy connect command
+          </button>
+          {<span className="tooltip">{addressUnavailable ? "Server address not available." : connectCommand}</span>}
+        </div>
+        <div className="tooltip-wrapper">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(connectLink)
+            }}
+          >
+            Copy instant connect link
+          </button>
+          {<span className="tooltip">{connectLink}</span>}
+        </div>
       </div>
     </>
   );
@@ -125,7 +135,8 @@ const ServerStatusPage: React.FC = () => {
     <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
       <h1>Server Status Dashboard</h1>
       {data.servers.map((d) => {
-        const { id, results } = d;
+        const { urlPath, results } = d;
+        
         const latest = results[results.length - 1];
         const latestValid = results.reduce((prev, curr) => {
           if (curr.maxPlayers > 0) {
@@ -133,14 +144,25 @@ const ServerStatusPage: React.FC = () => {
           }
           return prev;
         });
+
+        const connectLinkDisabled =
+          !latestValid.serverAddress ||
+          (latestValid.sdr && !data.redirectIP) ||
+          latest.onlinePlayers == latest.maxPlayers ||
+          latest.maxPlayers == 0;
+        
+        const addressUnavailable = !latestValid.serverAddress || (latestValid.sdr && latest.maxPlayers == 0);
+
+        const serverAddress = addressUnavailable ? "Not available" : latestValid.serverAddress || "Not available";
+
         return (
-          <div key={id} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
-            <h2>{latestValid.serverName || 'Not Available'}</h2>
-            <p><strong>Address:</strong> {latestValid.serverAddress || "N/A"}</p>
+          <div key={urlPath} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
+            <h2>{latestValid.serverName || '<unknown server>'}</h2>
+            <p><strong>Address:</strong> {serverAddress}</p>
             <p><strong>Map:</strong> {latest.map}</p>
             <p><strong>Players:</strong> {latest.onlinePlayers} / {latest.maxPlayers}</p>
             <p><strong>Status:</strong> {getStatus(results)}</p>
-            {getButtons(latestValid.serverAddress, latest.sdr, latest.onlinePlayers, latest.maxPlayers, data.redirectIP)}
+            {getButtons(latestValid.serverAddress, data.urlBase, urlPath, connectLinkDisabled, addressUnavailable)}
           </div>
         );
       })}

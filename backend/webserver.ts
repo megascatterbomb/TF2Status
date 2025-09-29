@@ -17,7 +17,8 @@ interface SimpleResult {
 
 interface APIQuery {
     externalLinks: ExternalLink[],
-    servers: { id: string, results: SimpleResult[] }[],
+    servers: { urlPath: string, results: SimpleResult[] }[],
+    urlBase: string,
     redirectIP?: string
 }
 
@@ -25,10 +26,14 @@ function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
     const simpleForms: APIQuery = {
         externalLinks: config.externalLinks,
         servers: [],
+        urlBase: config.urlBase,
         redirectIP
     };
-    resultArchive.forEach((resultArray, key) => {
-        simpleForms.servers.push({id: key, results: resultArray.map(result => transformResult(key, result))});
+    resultArchive.forEach((resultArray, urlPath) => {
+        simpleForms.servers.push({
+            urlPath,
+            results: resultArray.map(result => transformResult(urlPath, result))
+        });
     });
     simpleForms.servers.sort((a, b) => {
         const aName = a.results.reduceRight((prev, curr) => curr.serverName || prev, "");
@@ -109,8 +114,8 @@ export function startWebServer(config: Config) {
                 return;
             }
             const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
+            console.log(`Serving asset ${req.params[0]} to ${requesterIP}`);
             res.download(assetPath);
-            console.log(`Served asset ${req.params[0]} to ${requesterIP}`);
         } else {
             res.sendStatus(503);
         }
@@ -125,8 +130,8 @@ export function startWebServer(config: Config) {
         try {
             const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
             const resultsJSON = jsonResultsArchive(results);
+            console.log(`Serving API data to ${requesterIP}`);
             res.status(200).send(resultsJSON);
-            console.log(`Served API data to ${requesterIP}`);
         } catch {
             res.sendStatus(500);
             return;
