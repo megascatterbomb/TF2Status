@@ -85,7 +85,8 @@ export type Config = {
     fastdlPath: string | undefined,
     externalLinks: ExternalLink[]
 }
-const queryInterval = 1 * 60 * 1000;
+const updateInterval = 1 * 60 * 1000;
+const queriesPerInterval = 6;
 const resultArchiveLimit = 100;
 const pingTimeLimit = 2 * 60 * 60 * 1000;
 const hysteresis = 3
@@ -141,21 +142,33 @@ async function mainLoop() {
         server.pings.sort((a, b) => a.threshold - b.threshold);
     });
 
+    let count = -1; // next interval will be synced to the minute
+
     while(true) {
         const time = Date.now();
+
+        const updateString = count === 0 ? "=== PERFORMING QUERY + ARCHIVE === " : "=== PERFORMING QUERY ===";
+        console.log(`${updateString}`);
         
         await Promise.allSettled(config.servers.map(async server => {
-            await handleServer(server);
+            await handleServer(server, count === 0);
         }))
         
         const time2 = Date.now();
-        const nextInterval = (Math.floor(time2 / queryInterval) * queryInterval) + queryInterval
+        const actualInterval = updateInterval / queriesPerInterval;
+        const nextInterval = (Math.floor(time2 / actualInterval) * actualInterval) + actualInterval;
         await new Promise(r => setTimeout(r, nextInterval - time2));
         lastUpdateTime = time;
+
+        if (count < 0) {
+            resultArchive.clear();
+        }
+
+        count = (count + 1) % queriesPerInterval;
     }
 }
 
-async function handleServer(server: TF2Server) {
+async function handleServer(server: TF2Server, addToHistory: boolean) {
     try {
         const channel = await client.channels.fetch(server.channelID) as TextChannel;
         const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
@@ -165,8 +178,10 @@ async function handleServer(server: TF2Server) {
 
         if(!resultArchive.has(identity)) {
             resultArchive.set(identity, [result]);
-        } else {
+        } else if (addToHistory) {
             resultArchive.get(identity)?.push(result);
+        } else {
+            resultArchive.get(identity)?.splice(-1, 1, result);
         }
 
         const results = resultArchive.get(identity) ?? [];
@@ -425,9 +440,9 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
         let newOutput = output;
 
         const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
-        const maxPlayers = result.query?.info.players.max ?? 100;
+        const maxPlayers = result.query?.info.players.max ?? 0;
 
-        const queryAge = calculateMinutesBetweenTimestamps(Date.now(), result.time);
+        const queryAge = calculateMinutesBetweenTimestamps(Date.now(), result.time, (resultArchive.length - 1) - i);
         const queryAgeString = queryAge === 0
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
@@ -473,12 +488,14 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
     return output
 }
 
-function calculateMinutesBetweenTimestamps(timestamp1: number, timestamp2: number): number {
+function calculateMinutesBetweenTimestamps(timestamp1: number, timestamp2: number, index: number): number {
+    if (index === 0) return 0;
+
     const date1 = new Date(timestamp1);
     const date2 = new Date(timestamp2);
     const diffMs = Math.abs(date2.getTime() - date1.getTime());
-    const diffMins = Math.round(diffMs / 60000);
-    return diffMins;
+    const diffMins = Math.ceil(diffMs / 60000);
+    return Math.max(index, diffMins - 1);
 }
 
 function getPings(server: TF2Server, result: Result): string {
@@ -546,7 +563,7 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
     if(consecutivefailCount < 2 && mostRecentResult?.query &&
         mostRecentResult?.query?.info.players.online
         - mostRecentResult?.query?.info.players.bots
-        === mostRecentResult?.query?.info.players.max &&
+        >= mostRecentResult?.query?.info.players.max &&
         mostRecentResult?.query?.info.players.max > 0) {
         return {
             title: mostRecentResult?.query?.info.name,
