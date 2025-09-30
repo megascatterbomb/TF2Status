@@ -170,6 +170,25 @@ async function mainLoop() {
 
 async function handleServer(server: TF2Server, addToHistory: boolean) {
     try {
+        // Skip if addToHistory is false and:
+        // either of the last two queries have zero players, or
+        // both of the last two queries failed
+        if (!addToHistory && resultArchive.has(server.urlPath)) {
+            const results = resultArchive.get(server.urlPath) ?? [];
+            const lastResult = results.length >= 1 ? results[results.length - 1] : undefined;
+            const secondLastResult = results.length > 1 ? results[results.length - 2] : undefined;
+
+            const lastPlayers = lastResult?.query ? (lastResult.query.info.players.online - (lastResult.query.info.players.bots ?? 0)) : null;
+            const secondLastPlayers = secondLastResult?.query ? (secondLastResult.query.info.players.online - (secondLastResult.query.info.players.bots ?? 0)) : null;
+
+            if ((lastPlayers !== null && lastPlayers === 0) ||
+                (secondLastPlayers !== null && secondLastPlayers === 0) ||
+                (lastResult?.query === undefined && secondLastResult?.query === undefined)) {
+                console.log(`Skipping update for ${server.urlPath}`);
+                return;
+            }
+        }
+
         const channel = await client.channels.fetch(server.channelID) as TextChannel;
         const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
         const result = await getResults(server.ip, server.port);
@@ -257,7 +276,7 @@ async function handleServer(server: TF2Server, addToHistory: boolean) {
             await channel.send({content: pings, embeds: [embed]})
         }
 
-        console.log(`Updated server ${server.urlPath} (${ipString}) at ${new Date().toLocaleTimeString()}`);
+        console.log(`Updated server ${server.urlPath} (${ipString})`);
     } catch (err) {
         console.log("shit hit the fan: " + err);
     }
