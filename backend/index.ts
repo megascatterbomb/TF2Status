@@ -171,7 +171,7 @@ async function mainLoop() {
 async function handleServer(server: TF2Server, addToHistory: boolean) {
     try {
         // Skip if addToHistory is false and:
-        // either of the last two queries have zero players, or
+        // the most recent query has zero players, or
         // both of the last two queries failed
         if (!addToHistory && resultArchive.has(server.urlPath)) {
             const results = resultArchive.get(server.urlPath) ?? [];
@@ -179,10 +179,8 @@ async function handleServer(server: TF2Server, addToHistory: boolean) {
             const secondLastResult = results.length > 1 ? results[results.length - 2] : undefined;
 
             const lastPlayers = lastResult?.query ? (lastResult.query.info.players.online - (lastResult.query.info.players.bots ?? 0)) : null;
-            const secondLastPlayers = secondLastResult?.query ? (secondLastResult.query.info.players.online - (secondLastResult.query.info.players.bots ?? 0)) : null;
 
             if ((lastPlayers !== null && lastPlayers === 0) ||
-                (secondLastPlayers !== null && secondLastPlayers === 0) ||
                 (lastResult?.query === undefined && secondLastResult?.query === undefined)) {
                 console.log(`Skipping update for ${server.urlPath}`);
                 return;
