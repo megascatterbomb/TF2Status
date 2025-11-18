@@ -46,17 +46,22 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
-button:hover {
+.button-enabled:hover {
   border-color: #646cff;
 }
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
-button:disabled {
+.button-error {
   opacity: 0.5;
   cursor: not-allowed;
   border-color: #ff6464;
+}
+.button-warning {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #899239;
 }
 
 .tooltip-wrapper {

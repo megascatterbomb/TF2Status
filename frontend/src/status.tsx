@@ -4,6 +4,8 @@ import type { ExternalLink } from './externalLinks';
 import externalLinks from './externalLinks';
 import axios from 'axios';
 
+type DirectConnect = "Supported" | "Unsupported" | "Unavailable";
+  
 type ServerResult = {
   serverName: string;
   serverAddress: string;
@@ -17,6 +19,7 @@ type ServerResult = {
 
 type ServerData = {
   urlPath: string;
+  supportsDirectConnect: boolean;
   results: ServerResult[];
 };
 
@@ -48,7 +51,7 @@ function getStatus(results: ServerResult[]): string {
   return '🟢 Online';
 }
 
-function getButtons(serverAddress: string, urlBase: string, urlPath: string, connectLinkDisabled: boolean, addressUnavailable: boolean): React.ReactNode {
+function getButtons(serverAddress: string, urlBase: string, urlPath: string, supportsDirectConnect: DirectConnect, addressUnavailable: boolean): React.ReactNode {
   const connectCommand = serverAddress ? `connect ${serverAddress}` : "Server address not available.";
   const connectLink = `${urlBase}/tf2/${urlPath}`;
 
@@ -57,8 +60,12 @@ function getButtons(serverAddress: string, urlBase: string, urlPath: string, con
       <div style={{ display: "flex", gap: "1rem", justifyContent: 'center' }}>
         <div className="tooltip-wrapper">
           <button
-            className={connectLinkDisabled ? "disabled" : ""}
-            disabled={connectLinkDisabled}
+            className={{
+            "Supported": "button-enabled",
+            "Unsupported": "button-warning",
+            "Unavailable": "button-error"
+          }[supportsDirectConnect]}
+            disabled={supportsDirectConnect !== "Supported"}
             onClick={() => {
               window.open(`${connectLink}`, '_blank');
             }}
@@ -66,11 +73,18 @@ function getButtons(serverAddress: string, urlBase: string, urlPath: string, con
             Connect to server
           </button>
 
-          {<span className="tooltip">{connectLinkDisabled ? "You cannot connect to this server right now." : "Click to launch TF2 and connect directly to server."}</span>}
+          {<span className="tooltip">{{
+            "Supported": "Click to launch TF2 and connect directly to server.",
+            "Unsupported": "This server does not support direct connect. Use the console command instead.",
+            "Unavailable": "You cannot connect to this server right now."
+          }[supportsDirectConnect]}</span>}
         </div>
         <div className="tooltip-wrapper">
           <button
-            className={addressUnavailable ? "disabled" : ""}
+            className={{
+              [0]: "button-enabled",
+              [1]: "button-error"
+            }[addressUnavailable ? 1 : 0]}
             disabled={addressUnavailable}
             onClick={() => {
                 navigator.clipboard.writeText(connectCommand)
@@ -78,17 +92,30 @@ function getButtons(serverAddress: string, urlBase: string, urlPath: string, con
           >
             Copy connect command
           </button>
-          {<span className="tooltip">{addressUnavailable ? "Server address not available." : connectCommand}</span>}
+          {<span className="tooltip ">{
+              addressUnavailable
+                ? "Server address not available."
+                :  connectCommand
+              }</span>}
         </div>
         <div className="tooltip-wrapper">
           <button
+            className={{
+              [0]: "button-warning",
+              [1]: "button-enabled"
+            }[supportsDirectConnect === "Unsupported" ? 0 : 1]}
+            disabled={supportsDirectConnect === "Unsupported"}
             onClick={() => {
               navigator.clipboard.writeText(connectLink)
             }}
           >
             Copy instant connect link
           </button>
-          {<span className="tooltip">{connectLink}</span>}
+          {<span className="tooltip">{
+              supportsDirectConnect === "Unsupported"
+                ? "This server does not support direct connect. Use the console command instead."
+                : connectLink
+            }</span>}
         </div>
       </div>
     </>
@@ -145,11 +172,19 @@ const ServerStatusPage: React.FC = () => {
           return prev;
         });
 
-        const connectLinkDisabled =
+
+        let connectLinkDisabled: DirectConnect = "Supported";
+
+        if (!d.supportsDirectConnect) {
+          connectLinkDisabled = "Unsupported";
+        } else if (
           !latestValid.serverAddress ||
           (latestValid.sdr && !data.redirectIP) ||
           latest.onlinePlayers == latest.maxPlayers ||
-          latest.maxPlayers == 0;
+          latest.maxPlayers == 0
+        ) {
+          connectLinkDisabled = "Unavailable";
+        }
         
         const addressUnavailable = !latestValid.serverAddress || (latestValid.sdr && latest.maxPlayers == 0);
 

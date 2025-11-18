@@ -17,7 +17,7 @@ interface SimpleResult {
 
 interface APIQuery {
     externalLinks: ExternalLink[],
-    servers: { urlPath: string, results: SimpleResult[] }[],
+    servers: { urlPath: string, supportsDirectConnect: boolean, results: SimpleResult[] }[],
     urlBase: string,
     redirectIP?: string
 }
@@ -32,6 +32,7 @@ function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
     resultArchive.forEach((resultArray, urlPath) => {
         simpleForms.servers.push({
             urlPath,
+            supportsDirectConnect: config.servers.find(s => s.urlPath === urlPath)?.supportsDirectConnect ?? false,
             results: resultArray.map(result => transformResult(urlPath, result))
         });
     });
