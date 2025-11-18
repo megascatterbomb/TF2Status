@@ -63,6 +63,8 @@ export type TF2Server = {
     ip: string,
     port: number,
     urlPath: string,
+    appID: number,
+    supportsDirectConnect: boolean,
     connectString: string | undefined,
     description: string,
     channelID: string,
@@ -189,7 +191,7 @@ async function handleServer(server: TF2Server, addToHistory: boolean) {
 
         const channel = await client.channels.fetch(server.channelID) as TextChannel;
         const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
-        const result = await getResults(server.ip, server.port);
+        const result = await getResults(server.ip, server.port, server.appID);
 
         let identity = server.urlPath;
 
@@ -203,7 +205,7 @@ async function handleServer(server: TF2Server, addToHistory: boolean) {
 
         const results = resultArchive.get(identity) ?? [];
 
-        const { title, notice, color, allowConnections, sdr } = getTitleAndColor(results);
+        const { title, notice, color, allowConnections, sdr } = getTitleAndColor(results, server);
 
         const pings = getPings(server, result);
 
@@ -289,7 +291,7 @@ export interface Result {
     time: number
 }
 
-async function getResults(ip: string, port: number): Promise<Result> {
+async function getResults(ip: string, port: number, appID: number): Promise<Result> {
 
     // If ip has no dots, assume it's a server's SteamID.
     // need to get actual IP from Steam API.
@@ -313,7 +315,7 @@ async function getResults(ip: string, port: number): Promise<Result> {
 
     // Handle SDR ips separately
     if (ip.startsWith("169.254.")) {
-        return getResultsSDR(ip, port)
+        return getResultsSDR(ip, port, appID)
     }
 
     // Query
@@ -341,7 +343,16 @@ async function getResults(ip: string, port: number): Promise<Result> {
     return result;
 }
 
-async function getResultsSDR(ip: string, port: number): Promise<Result> {
+function getSDRQueryURL(ip: string, port: number, appID: number, queryType: number): string {
+    // Convert IP to the format expected by Steam API
+    // e.g. 169.254.1.1 -> (169 * 256^3) + (254 * 256^2) + (1 * 256) + 1 = 2851995905
+    let decimalIp = ip.split(".").map(Number).reduce((acc, octet) => (acc << 8) + octet, 0);
+
+    return `https://api.steampowered.com/IGameServersService/QueryByFakeIP/v1?key=${config.steamApiKey}&format=json` +
+        `&fake_ip=${decimalIp}&fake_port=${port}&app_id=${appID}&query_type=${queryType}`;
+}
+
+async function getResultsSDR(ip: string, port: number, appID: number): Promise<Result> {
     // Need an API key to do this
     if (!config.steamApiKey) {
         return {
@@ -350,17 +361,10 @@ async function getResultsSDR(ip: string, port: number): Promise<Result> {
         };
     }
 
-    // Convert IP to the format expected by Steam API
-    // e.g. 169.254.1.1 -> (169 * 256^3) + (254 * 256^2) + (1 * 256) + 1 = 2851995905
-    let decimalIp = ip.split(".").map(Number).reduce((acc, octet) => (acc << 8) + octet, 0);
-
     let result: Result | undefined = undefined;
 
-    const baseQuery = `https://api.steampowered.com/IGameServersService/QueryByFakeIP/v1?key=${config.steamApiKey}&format=json` +
-        `&fake_ip=${decimalIp}&fake_port=${port}&app_id=440&query_type=`;
-    
-    const serverQuery = `${baseQuery}1`; // Get server info
-    const playerQuery = `${baseQuery}2`; // Get player info
+    const serverQuery = getSDRQueryURL(ip, port, appID, 1);
+    const playerQuery = getSDRQueryURL(ip, port, appID, 2);
     
     try {
         const serverDataPromise = getSteamAPI(serverQuery)
@@ -377,7 +381,7 @@ async function getResultsSDR(ip: string, port: number): Promise<Result> {
                     map: serverData?.response?.ping_data?.map ?? "N/A",
                     folder: serverData?.response?.ping_data?.gamedir ?? "N/A",
                     game: serverData?.response?.ping_data?.game_description ?? 0,
-                    appID: 440,
+                    appID: serverData?.response?.ping_data?.app_id ?? 440,
                     players: {
                         online: serverData?.response?.ping_data?.num_players ?? 0,
                         max: serverData?.response?.ping_data?.max_players ?? 0,
@@ -453,7 +457,7 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
 
     // Iterate by most recent first
     for(let i = resultArchive.length - 1; i >= 0 && i >= resultArchive.length - maxQueries; i-- ) {
-        const result = resultArchive[i];
+        const result = resultArchive[i];1
         let newOutput = output;
 
         const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
@@ -550,7 +554,7 @@ const DISRUPTED = 0xffff00;
 const OFFLINE = 0xff0000;
 const FULL = 0x00ffaa;
 
-function getTitleAndColor(resultArchive: Result[]): {title: string, notice: string, color: number, allowConnections?: boolean, sdr: boolean} {
+function getTitleAndColor(resultArchive: Result[], server: TF2Server): {title: string, notice: string, color: number, allowConnections?: boolean, sdr: boolean} {
     let consecutivefailCount = 0;
     let mostRecentResult: Result | undefined = undefined;
 
@@ -596,9 +600,11 @@ function getTitleAndColor(resultArchive: Result[]): {title: string, notice: stri
             const color = mostRecentResult?.query && mostRecentResult?.query?.info.players.online - mostRecentResult?.query?.info.players.bots === 0 ? EMPTY : ACTIVE;
             return {
                 title: mostRecentResult?.query?.info.name ?? "Awaiting initial server query...",
-                notice: "[ONLINE] Click the server name to instantly connect.",
+                notice: server.supportsDirectConnect && !!mostRecentResult
+                    ? "[ONLINE] Click the server name to instantly connect."
+                    : "[ONLINE] Use the console command below to connect.",
                 color: color,
-                allowConnections: !!mostRecentResult,
+                allowConnections: server.supportsDirectConnect && !!mostRecentResult,
                 sdr
             }
         case 1:

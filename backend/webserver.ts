@@ -72,29 +72,41 @@ export function startWebServer(config: Config) {
             let port = server.port;
             const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
 
+
             if (!ip.includes(".")) {
                 const actualIP = await getIPfromSteamID(ip);
                 if (actualIP === undefined || actualIP === null) {
                     res.status(500).send("<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>");
                     return;
-                } else if (actualIP.ip.startsWith("169.254.")) {
-                    const sdrLink = await getConnectLinkSDR(`${actualIP.ip}:${actualIP.port}`);
-                    if (!sdrLink) {
-                        res.status(500).send(
-                            "<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>"
-                            + `<p>If the issue persists, try connecting through console with the command <code>connect ${actualIP.ip}:${actualIP.port}</code></p>`
-                            + `<p>If that fails, check the server status <a href="${config.urlBase}">here</a>.</p>`
-                        );
-                        return;
-                    }
-                    res.redirect(sdrLink);
-                    console.log(`Redirected ${requesterIP} to ${sdrLink}`);
-                    return;
-                } else {
-                    ip = actualIP.ip;
-                    port = actualIP.port;
                 }
+                ip = actualIP.ip;
+                port = actualIP.port;
             }
+                
+            if (!server.supportsDirectConnect) {
+                res.status(200).send(
+                    "<h1>Direct connect is not supported for this server.</h1>"
+                    + `<p>Try connecting through console with the command <code>connect ${ip}:${port}</code></p>`
+                    + `<p>If that fails, check the server status <a href="${config.urlBase}">here</a>.</p>`
+                );
+                return;
+            }
+
+            if (ip.startsWith("169.254.")) {
+                const sdrLink = await getConnectLinkSDR(`${ip}:${port}`);
+                if (!sdrLink) {
+                    res.status(500).send(
+                        "<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>"
+                        + `<p>If the issue persists, try connecting through console with the command <code>connect ${ip}:${port}</code></p>`
+                        + `<p>If that fails, check the server status <a href="${config.urlBase}">here</a>.</p>`
+                    );
+                    return;
+                }
+                res.redirect(sdrLink);
+                console.log(`Redirected ${requesterIP} to ${sdrLink}`);
+                return;
+            }
+
             const steamLink = `steam://connect/${ip}:${port}`;
             res.redirect(steamLink);
             console.log(`Redirected ${requesterIP} to ${steamLink}`);
