@@ -69,6 +69,7 @@ export type TF2Server = {
     description: string,
     channelID: string,
     graphDensity: number,
+    modName: string | undefined // links store page using appID if defined
     pings: Ping[]
 }
 
@@ -258,10 +259,17 @@ async function handleServer(server: TF2Server, addToHistory: boolean) {
             url = `${config.urlBase}/tf2/${server.urlPath}`;
         }
 
+        let description = "\`\`\`" + server.description + (notice ? "\n\n" + notice : "") + "\`\`\`";
+
+        if (server.modName) {
+            url = `https://store.steampowered.com/app/${server.appID}/`;
+            description = `A server for [${server.modName}](${url})\n` + description;
+        }
+
         const embed = new EmbedBuilder({
             title: title,
             url,
-            description: "\`\`\`" + server.description + (notice ?  "\n\n" + notice : "") + "\`\`\`",
+            description,
             timestamp: Date.now(),
             color: color,
             fields: fields

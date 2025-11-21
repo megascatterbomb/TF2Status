@@ -21,6 +21,8 @@ type ServerData = {
   urlPath: string;
   supportsDirectConnect: boolean;
   results: ServerResult[];
+  modName: string | undefined;
+  appID: number;
 };
 
 type APIQuery = {
@@ -193,6 +195,7 @@ const ServerStatusPage: React.FC = () => {
         return (
           <div key={urlPath} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
             <h2>{latestValid.serverName || '<unknown server>'}</h2>
+            {d.modName && <p>A server for <a href={`https://store.steampowered.com/app/${d.appID}`} target='_blank'>{d.modName}</a></p>}
             <p><strong>Address:</strong> {serverAddress}</p>
             <p><strong>Map:</strong> {latest.map}</p>
             <p><strong>Players:</strong> {latest.onlinePlayers} / {latest.maxPlayers}</p>

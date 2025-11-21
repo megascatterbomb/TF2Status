@@ -17,7 +17,13 @@ interface SimpleResult {
 
 interface APIQuery {
     externalLinks: ExternalLink[],
-    servers: { urlPath: string, supportsDirectConnect: boolean, results: SimpleResult[] }[],
+    servers: {
+        urlPath: string,
+        supportsDirectConnect: boolean,
+        results: SimpleResult[],
+        modName: string | undefined,
+        appID: number
+    }[],
     urlBase: string,
     redirectIP?: string
 }
@@ -30,10 +36,13 @@ function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
         redirectIP
     };
     resultArchive.forEach((resultArray, urlPath) => {
+        const serverConfig = config.servers.find(s => s.urlPath === urlPath);
         simpleForms.servers.push({
             urlPath,
-            supportsDirectConnect: config.servers.find(s => s.urlPath === urlPath)?.supportsDirectConnect ?? false,
-            results: resultArray.map(result => transformResult(urlPath, result))
+            supportsDirectConnect: serverConfig?.supportsDirectConnect ?? false,
+            results: resultArray.map(result => transformResult(urlPath, result)),
+            modName: serverConfig?.modName,
+            appID: serverConfig?.appID ?? 440
         });
     });
     simpleForms.servers.sort((a, b) => {
