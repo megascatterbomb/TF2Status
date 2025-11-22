@@ -254,21 +254,21 @@ async function handleServer(server: TF2Server, addToHistory: boolean) {
             inline: false
         });
 
-        let url: string | undefined = undefined;
+        let connectUrl: string | undefined = undefined;
         if (allowConnections) {
-            url = `${config.urlBase}/tf2/${server.urlPath}`;
+            connectUrl = `${config.urlBase}/tf2/${server.urlPath}`;
         }
 
         let description = "\`\`\`" + server.description + (notice ? "\n\n" + notice : "") + "\`\`\`";
 
         if (server.modName) {
-            url = `https://store.steampowered.com/app/${server.appID}/`;
-            description = `A server for [${server.modName}](${url})\n` + description;
+            const modUrl = `https://store.steampowered.com/app/${server.appID}/`;
+            description = `A server for [${server.modName}](${modUrl})\n` + description;
         }
 
         const embed = new EmbedBuilder({
             title: title,
-            url,
+            url: connectUrl,
             description,
             timestamp: Date.now(),
             color: color,
