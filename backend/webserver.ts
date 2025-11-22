@@ -46,10 +46,10 @@ function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
         });
     });
     simpleForms.servers.sort((a, b) => {
-        const aName = a.results.reduceRight((prev, curr) => curr.serverName || prev, "");
-        const bName = b.results.reduceRight((prev, curr) => curr.serverName || prev, "");
+        const aIndex = config.servers.findIndex(s => s.urlPath === a.urlPath);
+        const bIndex = config.servers.findIndex(s => s.urlPath === b.urlPath);
 
-        return aName.localeCompare(bName);
+        return aIndex - bIndex;
     });
     return simpleForms;
 }
