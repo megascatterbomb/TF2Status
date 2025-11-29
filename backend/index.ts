@@ -109,32 +109,30 @@ export function getResultsArchive(): Map<string, Result[]> {
     return resultArchive;
 }
 
-export let redirectIP: string | undefined = undefined;
-let redirectIPLastFetchTime: number = 0;
+// export let redirectIP: string | undefined = undefined;
+// let redirectIPLastFetchTime: number = 0;
 
-async function fetchRedirectIP() {
-    const now = Date.now();
-    if ((!redirectIP && now - redirectIPLastFetchTime > redirectIPTimeout) || now - redirectIPLastFetchTime > redirectIPFetchInterval) {
-        redirectIPLastFetchTime = now;
-        try {
-            const response = await axios.get(`https://potato.tf/api/serverstatus/redirect`, {
-                timeout: redirectIPTimeout,
-            });
-            const rip = response.data;
-            redirectIP = rip;
-        } catch (error) {
-            console.error("Error fetching Potato.tf redirect IP");
-            redirectIP = undefined;
-        }
-    }
-}
+// async function fetchRedirectIP() {
+//     const now = Date.now();
+//     if ((!redirectIP && now - redirectIPLastFetchTime > redirectIPTimeout) || now - redirectIPLastFetchTime > redirectIPFetchInterval) {
+//         redirectIPLastFetchTime = now;
+//         try {
+//             const response = await axios.get(`https://potato.tf/api/serverstatus/redirect`, {
+//                 timeout: redirectIPTimeout,
+//             });
+//             const rip = response.data;
+//             redirectIP = rip;
+//         } catch (error) {
+//             console.error("Error fetching Potato.tf redirect IP");
+//             redirectIP = undefined;
+//         }
+//     }
+// }
 
-fetchRedirectIP();
+// fetchRedirectIP();
 
-export async function getConnectLinkSDR(sdrString: string): Promise<string | undefined> {
-    await fetchRedirectIP();
-    if (!redirectIP) return undefined;
-    return `https://potato.tf/connect/${redirectIP}/dest=${sdrString}`;
+export function getConnectLinkSDR(sdrString: string, appID: number): string {
+    return `steam://run/${appID}//+connect ${sdrString}`;
 }
 
 export let lastUpdateTime: number | undefined = undefined;

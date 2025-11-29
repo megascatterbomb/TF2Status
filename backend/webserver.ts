@@ -1,7 +1,7 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
-import { Config, ExternalLink, getConnectLinkSDR, getIPfromSteamID, getResultsArchive, redirectIP, Result } from ".";
+import { Config, ExternalLink, getConnectLinkSDR, getIPfromSteamID, getResultsArchive, Result } from ".";
 
 let config = require("./config.json") as Config;
 
@@ -32,8 +32,7 @@ function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
     const simpleForms: APIQuery = {
         externalLinks: config.externalLinks,
         servers: [],
-        urlBase: config.urlBase,
-        redirectIP
+        urlBase: config.urlBase
     };
     resultArchive.forEach((resultArray, urlPath) => {
         const serverConfig = config.servers.find(s => s.urlPath === urlPath);
@@ -103,7 +102,7 @@ export function startWebServer(config: Config) {
             }
 
             if (ip.startsWith("169.254.")) {
-                const sdrLink = await getConnectLinkSDR(`${ip}:${port}`);
+                const sdrLink = getConnectLinkSDR(`${ip}:${port}`, server.appID);
                 if (!sdrLink) {
                     res.status(500).send(
                         "<h1>Could not resolve server IP address. Wait a few seconds and refresh.</h1>"

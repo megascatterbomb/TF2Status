@@ -29,7 +29,6 @@ type APIQuery = {
   externalLinks: ExternalLink[];
   servers: ServerData[];
   urlBase: string;
-  redirectIP?: string;
 }
 
 function getStatus(results: ServerResult[]): string {
@@ -181,7 +180,6 @@ const ServerStatusPage: React.FC = () => {
           connectLinkDisabled = "Unsupported";
         } else if (
           !latestValid.serverAddress ||
-          (latestValid.sdr && !data.redirectIP) ||
           latest.onlinePlayers == latest.maxPlayers ||
           latest.maxPlayers == 0
         ) {
