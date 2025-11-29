@@ -95,13 +95,9 @@ const pingTimeLimit = 2 * 60 * 60 * 1000;
 const hysteresis = 3
 
 const maxCharsFieldValue = 1024;
-const maxCharsLine = 49;
 
 const maxQueries = 21; // 21 queries is the max that we show in a discord message.
 const maxDisplay = 25; // 25 lines is the max that we show in a discord message (including map names)
-
-const redirectIPFetchInterval = 60 * 1000;
-const redirectIPTimeout = 5000; 
 
 let resultArchive = new Map<string, Result[]>(); // Use urlPath as key.
 
