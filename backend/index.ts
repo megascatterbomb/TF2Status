@@ -470,7 +470,7 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = ' ' + (result.query ? (onlinePlayers.toString()) : result.err ?? "UNKNOWN ERROR").padStart(maxPlayers.toString().length, ' ') + '\n';
+        const playerCountString = ' ' + (result.query ? (onlinePlayers.toString()) : result.err ?? "UNKNOWN ERROR") + '\n';
 
         let playerGraphString = ""
 
