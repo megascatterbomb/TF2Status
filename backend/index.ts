@@ -80,6 +80,9 @@ export type ExternalLink = {
 }
 
 export type Config = {
+    interval: number, // minutes
+    queriesPerInterval: number
+    pingCooldown: number, // minutes
     discordToken: string,
     websiteTitle: string,
     urlBase: string,
@@ -87,17 +90,17 @@ export type Config = {
     webPort: number,
     steamApiKey: string | undefined,
     fastdlPath: string | undefined,
+    publishSite: boolean,
     externalLinks: ExternalLink[]
 }
-const updateInterval = 1 * 60 * 1000;
-const queriesPerInterval = 6;
+
+const intervalMS = config.interval * 60*  1000;
+const pingCooldownMS = config.pingCooldown * 60 * 1000;
+
 const resultArchiveLimit = 100;
-const pingTimeLimit = 2 * 60 * 60 * 1000;
 const hysteresis = 3
-
 const maxCharsFieldValue = 1024;
-
-const maxQueries = 21; // 21 queries is the max that we show in a discord message.
+const maxQueries = 21; // 21 queries is the max that we show in a discord message (NOW and 1-20 MIN AGO).
 const maxDisplay = 25; // 25 lines is the max that we show in a discord message (including map names)
 
 let resultArchive = new Map<string, Result[]>(); // Use urlPath as key.
@@ -140,7 +143,7 @@ async function mainLoop() {
         server.pings.sort((a, b) => a.threshold - b.threshold);
     });
 
-    let count = -1; // next interval will be synced to the minute
+    let count = -1;
 
     while(true) {
         const time = Date.now();
@@ -153,7 +156,7 @@ async function mainLoop() {
         }))
         
         const time2 = Date.now();
-        const actualInterval = updateInterval / queriesPerInterval;
+        const actualInterval = intervalMS / config.queriesPerInterval;
         const nextInterval = (Math.floor(time2 / actualInterval) * actualInterval) + actualInterval;
         await new Promise(r => setTimeout(r, nextInterval - time2));
         lastUpdateTime = time;
@@ -162,7 +165,7 @@ async function mainLoop() {
             resultArchive.clear();
         }
 
-        count = (count + 1) % queriesPerInterval;
+        count = (count + 1) % config.queriesPerInterval;
     }
 }
 
@@ -542,7 +545,7 @@ function getPings(server: TF2Server, result: Result): string {
         if(ping.triggerTime === undefined && onlinePlayers >= ping.threshold) {
             ping.triggerTime = now;
             toPing.push(ping.role);
-        } else if (onlinePlayers <= ping.threshold - hysteresis && now - (ping.triggerTime ?? now) > pingTimeLimit) {
+        } else if (onlinePlayers <= ping.threshold - hysteresis && now - (ping.triggerTime ?? now) > pingCooldownMS) {
             ping.triggerTime = undefined;
         }
         return ping;
@@ -635,9 +638,9 @@ function buildPingActivity(server: TF2Server): string {
     const buildRow = (ping: Ping): string => {
         const start = `${ping.threshold} PLAYER PING: `
         if(ping.triggerTime === undefined) return `${start}READY`;
-        if(Date.now() - ping.triggerTime > pingTimeLimit) return `${start}RESETS BELOW ${ping.threshold - hysteresis + 1} PLAYERS`;
+        if(Date.now() - ping.triggerTime > pingCooldownMS) return `${start}RESETS BELOW ${ping.threshold - hysteresis + 1} PLAYERS`;
         
-        const timeRemaining = ping.triggerTime + pingTimeLimit - Date.now();
+        const timeRemaining = ping.triggerTime + pingCooldownMS - Date.now();
         const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
         const minutes = Math.floor(timeRemaining / (1000 * 60)) % 60
 

@@ -161,15 +161,17 @@ export function startWebServer(config: Config) {
         }
     })
 
-    app.get("/*", (req: Request, res: Response) => {
-        let target = "index.html";
-        if (req.params[0]) {
-            target = req.params[0];
-        } else {
-            const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
-            console.log("Serving main site to " + requesterIP);
-        }
-        res.sendFile(path.join(__dirname, "../frontend/dist/" + target));
-    })
+    if (config.publishSite) {
+        app.get("/*", (req: Request, res: Response) => {
+            let target = "index.html";
+            if (req.params[0]) {
+                target = req.params[0];
+            } else {
+                const requesterIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "unknown";
+                console.log("Serving main site to " + requesterIP);
+            }
+            res.sendFile(path.join(__dirname, "../frontend/dist/" + target));
+        })
+    }
     app.listen(config.webPort);
 }
