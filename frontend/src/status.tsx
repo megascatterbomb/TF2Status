@@ -26,6 +26,7 @@ type ServerData = {
 };
 
 type APIQuery = {
+  websiteTitle: string;
   externalLinks: ExternalLink[];
   servers: ServerData[];
   urlBase: string;
@@ -159,9 +160,11 @@ const ServerStatusPage: React.FC = () => {
   if (error) return <p>Error loading data: {error}<br />Try refreshing in a couple seconds.</p>;
   if (!data) return <p>No data available.</p>;
 
+  document.title = data.websiteTitle;
+
   return (
     <div style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
-      <h1>Server Status Dashboard</h1>
+      <h1>{data.websiteTitle}</h1>
       {data.servers.map((d) => {
         const { urlPath, results } = d;
         

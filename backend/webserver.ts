@@ -17,6 +17,7 @@ interface SimpleResult {
 
 interface APIQuery {
     externalLinks: ExternalLink[],
+    websiteTitle: string,
     servers: {
         urlPath: string,
         supportsDirectConnect: boolean,
@@ -25,11 +26,12 @@ interface APIQuery {
         appID: number
     }[],
     urlBase: string,
-    redirectIP?: string
+    // redirectIP?: string
 }
 
 function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
     const simpleForms: APIQuery = {
+        websiteTitle: config.websiteTitle,
         externalLinks: config.externalLinks,
         servers: [],
         urlBase: config.urlBase

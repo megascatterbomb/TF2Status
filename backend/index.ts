@@ -81,6 +81,7 @@ export type ExternalLink = {
 
 export type Config = {
     discordToken: string,
+    websiteTitle: string,
     urlBase: string,
     servers: TF2Server[],
     webPort: number,
