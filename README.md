@@ -36,8 +36,8 @@ The first example server uses Steam networking and activity pings.
 {
     "discordToken": "MY_DISCORD_TOKEN",
     "websiteTitle": "megascatterbomb's servers",
-    "interval": 60,
-    "queriesPerInterval": 6,
+    "interval": 1,
+    "queriesPerInterval": 1,
     "pingCooldown": 120,
     "fastdlPath": "./temp",
     "steamApiKey": "MY_STEAM_API_KEY",
