@@ -94,7 +94,7 @@ export type Config = {
     externalLinks: ExternalLink[]
 }
 
-const intervalMS = config.interval * 60*  1000;
+const intervalMS = config.interval * 60 *  1000;
 const pingCooldownMS = config.pingCooldown * 60 * 1000;
 
 const resultArchiveLimit = 100;
@@ -158,6 +158,9 @@ async function mainLoop() {
         const time2 = Date.now();
         const actualInterval = intervalMS / config.queriesPerInterval;
         const nextInterval = (Math.floor(time2 / actualInterval) * actualInterval) + actualInterval;
+
+        console.log(`Next update due at ${new Date(nextInterval)}`)
+
         await new Promise(r => setTimeout(r, nextInterval - time2));
         lastUpdateTime = time;
 
