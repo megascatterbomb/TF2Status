@@ -30,7 +30,7 @@ This bot does **not**:
 
 ### Example configuration
 
-The first example server uses Steam networking and activity pings.
+This configuration file goes at `./config.json` relative to the current working directory of your NodeJS process.
 
 ```json
 {
@@ -107,7 +107,7 @@ The first example server uses Steam networking and activity pings.
 ### Settings
 
 #### `discordToken`
-The discord token for your discord bot. Get one here TODO
+The discord token for your discord bot. Get one here: https://discord.com/developers/applications
 
 #### `websiteTitle`
 The title of the website. Displays both in the browser tab and at the top of the page.
@@ -127,7 +127,7 @@ In minutes, the minimum time between any role being pinged twice for the same se
 The path at which the game will look for files to serve to connecting players. Whichever folder you specify here should have folders inside it for maps, materials, sounds, etc.
 
 #### `steamApiKey` (required for Steam Networking only)
-Used to query Steam Networking based servers, both to fetch the IP address from Steam with `IGameServersService/GetServerIPsBySteamID`, and to query the server directly with `IGameServersService/QueryByFakeIP`. Get an API key here: TODO
+Used to query Steam Networking based servers, both to fetch the IP address from Steam with `IGameServersService/GetServerIPsBySteamID`, and to query the server directly with `IGameServersService/QueryByFakeIP`. Get an API key here: https://steamcommunity.com/dev/apikey
 
 #### `urlBase`
 The base URL to prepend any links and such with. Include the `http://` or `https://` at the front. For example, I set `https://megascatterbomb.com` which means my server's connect link will be `https://megascatterbomb.com/tf2/bs`.
