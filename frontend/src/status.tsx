@@ -21,6 +21,7 @@ type ServerData = {
   urlPath: string;
   supportsDirectConnect: boolean;
   results: ServerResult[];
+  connectString: string | undefined,
   modName: string | undefined;
   appID: number;
 };
@@ -53,8 +54,8 @@ function getStatus(results: ServerResult[]): string {
   return '🟢 Online';
 }
 
-function getButtons(serverAddress: string, urlBase: string, urlPath: string, supportsDirectConnect: DirectConnect, addressUnavailable: boolean): React.ReactNode {
-  const connectCommand = serverAddress ? `connect ${serverAddress}` : "Server address not available.";
+function getButtons(connectString: string, urlBase: string, urlPath: string, supportsDirectConnect: DirectConnect, addressUnavailable: boolean): React.ReactNode {
+  const connectCommand = connectString ? `connect ${connectString}` : "Server address not available.";
   const connectLink = `${urlBase}/tf2/${urlPath}`;
 
   return (
@@ -191,17 +192,23 @@ const ServerStatusPage: React.FC = () => {
         
         const addressUnavailable = !latestValid.serverAddress || (latestValid.sdr && latest.maxPlayers == 0);
 
-        const serverAddress = addressUnavailable ? "Not available" : latestValid.serverAddress || "Not available";
+        const connectString = (() => {
+          if (addressUnavailable) return "Not Available";
+
+          if (!latestValid.sdr && d.connectString) return d.connectString;
+
+          return latestValid.serverAddress;
+        })();
 
         return (
           <div key={urlPath} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
             <h2>{latestValid.serverName || '<unknown server>'}</h2>
             {d.modName && <p>A server for <a href={`https://store.steampowered.com/app/${d.appID}`} target='_blank'>{d.modName}</a></p>}
-            <p><strong>Address:</strong> {serverAddress}</p>
+            <p><strong>Address:</strong> {connectString}</p>
             <p><strong>Map:</strong> {latest.map}</p>
             <p><strong>Players:</strong> {latest.onlinePlayers} / {latest.maxPlayers}</p>
             <p><strong>Status:</strong> {getStatus(results)}</p>
-            {getButtons(latestValid.serverAddress, data.urlBase, urlPath, connectLinkDisabled, addressUnavailable)}
+            {getButtons(connectString, data.urlBase, urlPath, connectLinkDisabled, addressUnavailable)}
           </div>
         );
       })}

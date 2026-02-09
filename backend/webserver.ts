@@ -22,6 +22,7 @@ interface APIQuery {
         urlPath: string,
         supportsDirectConnect: boolean,
         results: SimpleResult[],
+        connectString: string | undefined,
         modName: string | undefined,
         appID: number
     }[],
@@ -42,6 +43,7 @@ function jsonResultsArchive(resultArchive: Map<string, Result[]>): APIQuery {
             urlPath,
             supportsDirectConnect: serverConfig?.supportsDirectConnect ?? false,
             results: resultArray.map(result => transformResult(urlPath, result)),
+            connectString: serverConfig?.connectString,
             modName: serverConfig?.modName,
             appID: serverConfig?.appID ?? 440
         });
