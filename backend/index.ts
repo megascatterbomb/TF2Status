@@ -156,6 +156,13 @@ async function mainLoop() {
 
     config.servers.forEach(server => {
         server.pings.sort((a, b) => a.threshold - b.threshold);
+        pingArchive.set(server.urlPath, server.pings.map(p => {
+            return {
+                config: p,
+                triggerTime: undefined
+            }
+        }));
+        alertArchive.set(server.urlPath, false);
     });
 
     let count = -1;
