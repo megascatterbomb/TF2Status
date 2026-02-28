@@ -85,7 +85,7 @@ export type Config = {
     interval: number, // minutes
     queriesPerInterval: number
     pingCooldown: number, // minutes
-    alertMessage: string,
+    alertTarget: string, // Role or user ping (including <@...> or <@&...>)
     alertTime: number, // minutes
     alertDecayRate: number,
     discordToken: string,
@@ -106,6 +106,12 @@ export type Ping = {
     triggerTime: number | undefined
 }
 
+export enum AlertStatus {
+    ONLINE,
+    UNSTABLE,
+    OFFLINE
+}
+
 const intervalMS = config.interval * 60 *  1000;
 const pingCooldownMS = config.pingCooldown * 60 * 1000;
 
@@ -118,7 +124,7 @@ const maxDisplay = 25; // 25 lines is the max that we show in a discord message 
 // Use urlPath as key
 let resultArchive = new Map<string, Result[]>(); 
 let pingArchive = new Map<string, Ping[]>();
-let alertArchive = new Map<string, boolean>();
+let alertArchive = new Map<string, AlertStatus>();
 
 export function getResultsArchive(): Map<string, Result[]> {
     return resultArchive;
@@ -162,7 +168,7 @@ async function mainLoop() {
                 triggerTime: undefined
             }
         }));
-        alertArchive.set(server.urlPath, false);
+        alertArchive.set(server.urlPath, AlertStatus.ONLINE);
     });
 
     let count = -1;
@@ -322,6 +328,7 @@ async function getResultsSDR(ip: string, port: number, appID: number): Promise<R
         const serverDataPromise = getSteamAPI(serverQuery)
         const playerDataPromise = getSteamAPI(playerQuery)
         const [serverData, playerData] = await Promise.all([serverDataPromise, playerDataPromise]);
+        const pingData = serverData?.response?.ping_data;
         result = {
             query: {
                 info: {
@@ -329,20 +336,20 @@ async function getResultsSDR(ip: string, port: number, appID: number): Promise<R
                     ping: 0,
                     protocol: 0,
                     goldSource: false,
-                    name: serverData?.response?.ping_data?.server_name ?? "N/A",
-                    map: serverData?.response?.ping_data?.map ?? "N/A",
-                    folder: serverData?.response?.ping_data?.gamedir ?? "N/A",
-                    game: serverData?.response?.ping_data?.game_description ?? 0,
-                    appID: serverData?.response?.ping_data?.app_id ?? 440,
+                    name: pingData?.server_name ?? "N/A",
+                    map: pingData?.map ?? "N/A",
+                    folder: pingData?.gamedir ?? "N/A",
+                    game: pingData?.game_description ?? 0,
+                    appID: pingData?.app_id ?? 440,
                     players: {
-                        online: serverData?.response?.ping_data?.num_players ?? 0,
-                        max: serverData?.response?.ping_data?.max_players ?? 0,
-                        bots: serverData?.response?.ping_data?.num_bots ?? 0
+                        online: pingData?.num_players ?? 0,
+                        max: pingData?.max_players ?? 0,
+                        bots: pingData?.num_bots ?? 0
                     },
-                    type: serverData?.response?.ping_data?.dedicated ? "dedicated" : "non-dedicated",
+                    type: pingData?.dedicated ? "dedicated" : "non-dedicated",
                     OS: 'linux',
-                    visibility: serverData?.response?.ping_data?.password ? "private" : "public",
-                    VAC: serverData?.response?.ping_data?.secure
+                    visibility: pingData?.password ? "private" : "public",
+                    VAC: pingData?.secure
                 },
                 playerInfo: playerData?.response?.players_data?.players?.map((player: any, index: number) => {
                     return {
@@ -666,20 +673,50 @@ async function updateStatusEmbed(server: TF2ServerConfig, resultArray: Result[])
         await channel.send({content: pings, embeds: [embed]})
     }
 
-    console.log(`Updated server ${server.urlPath} (${ipString})`);
+    console.log(`Updated server ${server.urlPath}${players ? `\t(${players.online}/${players.max})` : "" }`);
 }
 
 async function sendOutageAlerts(server: TF2ServerConfig, resultArray: Result[]) {
-    if (!server.alertChannelID) return;
+    if (!server.alertChannelID || resultArray.length < 3) return;
 
     const channel = await client.channels.fetch(server.alertChannelID) as TextChannel;
-    const isAlerting = alertArchive.get(server.urlPath);
-    const { withDecay: failureCount } = getFailureCount(resultArray);
 
-    if (!isAlerting && failureCount >= config.alertTime) { // Send Alert
+    const alertStatus = alertArchive.get(server.urlPath);
+    const { raw: failureCountRaw, withDecay: failureCount, mostRecentResult } = getFailureCount(resultArray);
+    const isTotalOutage = failureCountRaw >= failureCount;
+    
+    const serverDetails = getServerDetails(resultArray);
+    const mostRecentPlayerCount = mostRecentResult ? getPlayerCounts(mostRecentResult) : 0;
+
+    if (failureCount >= config.alertTime &&
+        (alertStatus === AlertStatus.ONLINE || alertStatus === AlertStatus.UNSTABLE && isTotalOutage)) { // Send alert
         
-    } else if (isAlerting && failureCount <= 0) { // Send resolution notice
+        const embed = new EmbedBuilder({
+            title: `Server ${isTotalOutage ? "Outage" : "Instability"} Alert for ${serverDetails?.name}`,
+            description: isTotalOutage
+                ? `\`\`\`Server has been offline for at least ${config.alertTime} minutes.\`\`\``
+                : `\`\`\`Server is experiencing network instability.\`\`\``,
+            timestamp: Date.now(),
+            color: isTotalOutage ? OFFLINE : DISRUPTED,
+        })
 
+        alertArchive.set(server.urlPath, isTotalOutage ? AlertStatus.OFFLINE : AlertStatus.UNSTABLE);
+
+        await channel.send({content: `${config.alertTarget} A TF2 Server is experiencing issues.`, embeds: [embed]})
+
+    } else if (alertStatus !== AlertStatus.ONLINE && failureCount <= 0) { // Send resolution notice
+        const embed = new EmbedBuilder({
+            title: `Server Outage Alert for ${serverDetails?.name}`,
+            description: `\`\`\`Server has recovered from network ${
+                alertStatus == AlertStatus.UNSTABLE ? "instability" : "outage"
+            }.\`\`\``,
+            timestamp: Date.now(),
+            color: ACTIVE,
+        })
+
+        alertArchive.set(server.urlPath, AlertStatus.ONLINE);
+
+        await channel.send({content: `${config.alertTarget} A TF2 Server has recovered from network issues.`, embeds: [embed]})
     }
 }
 
@@ -716,6 +753,13 @@ function getFailureCount(resultArray: Result[]): { raw: number, withDecay: numbe
         withDecay: withDecayFailureCount,
         mostRecentResult
     }
+}
+
+function getServerDetails(resultArray: Result[]) {
+    const mostRecentResult = getFailureCount(resultArray).mostRecentResult;
+    const info = mostRecentResult?.query?.info;
+    
+    return info;
 }
 
 function getPlayerCounts(result: Result): { online: number, max: number, bots: number } | undefined {
