@@ -53,13 +53,14 @@ client.on('clientReady', () => {
     process.on('SIGTERM', () => shutdown('SIGTERM'));
 });
 
-export type Ping = {
+// CONFIG TYPES
+
+export type PingConfig = {
     threshold: number,
     role: string,
-    triggerTime: number | undefined // Undefined if cooldown expired. 
 }
 
-export type TF2Server = {
+export type TF2ServerConfig = {
     ip: string,
     port: number,
     urlPath: string,
@@ -70,10 +71,11 @@ export type TF2Server = {
     channelID: string,
     graphDensity: number,
     modName: string | undefined // links store page using appID if defined
-    pings: Ping[]
+    pings: PingConfig[],
+    alertChannelID: string | undefined
 }
 
-export type ExternalLink = {
+export type ExternalLinkConfig = {
     title: string,
     description: string,
     url: string
@@ -83,15 +85,25 @@ export type Config = {
     interval: number, // minutes
     queriesPerInterval: number
     pingCooldown: number, // minutes
+    alertMessage: string,
+    alertTime: number, // minutes
+    alertDecayRate: number,
     discordToken: string,
     websiteTitle: string,
     urlBase: string,
-    servers: TF2Server[],
+    servers: TF2ServerConfig[],
     webPort: number,
     steamApiKey: string | undefined,
     fastdlPath: string | undefined,
     publishSite: boolean,
-    externalLinks: ExternalLink[]
+    externalLinks: ExternalLinkConfig[]
+}
+
+// RUNTIME TYPES
+
+export type Ping = {
+    config: PingConfig,
+    triggerTime: number | undefined
 }
 
 const intervalMS = config.interval * 60 *  1000;
@@ -103,7 +115,10 @@ const maxCharsFieldValue = 1024;
 const maxQueries = 21; // 21 queries is the max that we show in a discord message (NOW and 1-20 MIN AGO).
 const maxDisplay = 25; // 25 lines is the max that we show in a discord message (including map names)
 
-let resultArchive = new Map<string, Result[]>(); // Use urlPath as key.
+// Use urlPath as key
+let resultArchive = new Map<string, Result[]>(); 
+let pingArchive = new Map<string, Ping[]>();
+let alertArchive = new Map<string, boolean>();
 
 export function getResultsArchive(): Map<string, Result[]> {
     return resultArchive;
@@ -172,27 +187,24 @@ async function mainLoop() {
     }
 }
 
-async function handleServer(server: TF2Server, addToHistory: boolean) {
+async function handleServer(server: TF2ServerConfig, addToHistory: boolean) {
     try {
         // Skip if addToHistory is false and:
         // the most recent query has zero players, or
         // both of the last two queries failed
         if (!addToHistory && resultArchive.has(server.urlPath)) {
-            const results = resultArchive.get(server.urlPath) ?? [];
-            const lastResult = results.length >= 1 ? results[results.length - 1] : undefined;
-            const secondLastResult = results.length > 1 ? results[results.length - 2] : undefined;
+            const resultArray = resultArchive.get(server.urlPath) ?? [];
+            const lastResult = resultArray.length >= 1 ? resultArray[resultArray.length - 1] : undefined;
+            const secondLastResult = resultArray.length > 1 ? resultArray[resultArray.length - 2] : undefined;
 
-            const lastPlayers = lastResult?.query ? (lastResult.query.info.players.online - (lastResult.query.info.players.bots ?? 0)) : null;
+            const lastPlayers = lastResult ? getPlayerCounts(lastResult)?.online ?? 0 : 0;
 
-            if ((lastPlayers !== null && lastPlayers === 0) ||
-                (lastResult?.query === undefined && secondLastResult?.query === undefined)) {
+            if (lastPlayers === 0 || (lastResult?.query === undefined && secondLastResult?.query === undefined)) {
                 console.log(`Skipping update for ${server.urlPath}`);
                 return;
             }
         }
 
-        const channel = await client.channels.fetch(server.channelID) as TextChannel;
-        const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
         const result = await getResults(server.ip, server.port, server.appID);
 
         let identity = server.urlPath;
@@ -205,87 +217,11 @@ async function handleServer(server: TF2Server, addToHistory: boolean) {
             resultArchive.get(identity)?.splice(-1, 1, result);
         }
 
-        const results = resultArchive.get(identity) ?? [];
+        const resultArray = resultArchive.get(identity) ?? [];
 
-        const { title, notice, color, allowConnections, sdr } = getTitleAndColor(results, server);
+        await updateStatusEmbed(server, resultArray);
+        await sendOutageAlerts(server, resultArray);
 
-        const pings = getPings(server, result);
-
-        let ipString = `${server.ip}:${server.port}`;
-        if (sdr) {
-            ipString = result.query?.info.address || "SDR IP NOT AVAILABLE";
-        } else if (server.connectString) {
-            ipString = server.connectString;
-        } else if (!server.ip.includes(".")) {
-            ipString = result.query?.info.address || "IP NOT AVAILABLE";
-        }
-        let connectString = "connect " + ipString;
-
-        let fields = [
-            {
-                name: "Connect via console:",
-                value: `\`${connectString}\``,
-                inline: true
-            },
-            {
-                name: "Map:",
-                value: result.query?.info.map ?? "N/A",
-                inline: true
-            },
-            {
-                name: "Players:",
-                value: result.query
-                    ? `${result.query?.info.players.online - result.query?.info.players.bots}/${result.query?.info.players.max}${(result.query?.info.players.bots ?? 0) > 0 ? ` (${result.query?.info.players.bots} bots)` : ""}`
-                    : "N/A",
-                inline: true
-            }
-        ];
-
-        if (server.pings.length > 0) {
-            fields.push({
-                name: "Activity Pings:",
-                value: buildPingActivity(server),
-                inline: false
-            })
-        }
-
-        fields.push({
-            name: "Recent History:",
-            value: buildServerActivity(results, server.graphDensity),
-            inline: false
-        });
-
-        let connectUrl: string | undefined = undefined;
-        if (allowConnections) {
-            connectUrl = `${config.urlBase}/tf2/${server.urlPath}`;
-        }
-
-        let description = "\`\`\`" + server.description + (notice ? "\n\n" + notice : "") + "\`\`\`";
-
-        if (server.modName) {
-            const modUrl = `https://store.steampowered.com/app/${server.appID}/`;
-            description = `A server for [${server.modName}](${modUrl})\n` + description;
-        }
-
-        const embed = new EmbedBuilder({
-            title: title,
-            url: connectUrl,
-            description,
-            timestamp: Date.now(),
-            color: color,
-            fields: fields
-        })
-
-        if(pings.length === 0 && lastMessage && lastMessage.author.id === client.user?.id) {
-            await lastMessage.edit({embeds: [embed]})
-        } else {
-            if(lastMessage && lastMessage.author.id === client.user?.id) {
-                await lastMessage.delete();
-            } 
-            await channel.send({content: pings, embeds: [embed]})
-        }
-
-        console.log(`Updated server ${server.urlPath} (${ipString})`);
     } catch (err) {
         console.log("shit hit the fan: " + err);
     }
@@ -454,9 +390,9 @@ async function getSteamAPI(query: string): Promise<any> {
     return response.data;
 }
   
-function buildServerActivity(resultArchive: Result[], graphDensity: number = 4): string {
-    while(resultArchive.length > resultArchiveLimit) {
-        resultArchive.splice(0, resultArchive.length - resultArchiveLimit)
+function buildServerActivity(resultArray: Result[], graphDensity: number = 4): string {
+    while(resultArray.length > resultArchiveLimit) {
+        resultArray.splice(0, resultArray.length - resultArchiveLimit)
     }
 
     let output = "```\n";
@@ -465,19 +401,18 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
     let map = undefined;
 
     // Iterate by most recent first
-    for(let i = resultArchive.length - 1; i >= 0 && i >= resultArchive.length - maxQueries; i-- ) {
-        const result = resultArchive[i];1
+    for(let i = resultArray.length - 1; i >= 0 && i >= resultArray.length - maxQueries; i-- ) {
+        const result = resultArray[i];
         let newOutput = output;
 
-        const onlinePlayers = (result.query?.info.players.online ?? 0) - (result.query?.info.players.bots ?? 0);
-        const maxPlayers = result.query?.info.players.max ?? 0;
+        const players = getPlayerCounts(result);
 
-        const queryAge = calculateMinutesBetweenTimestamps(Date.now(), result.time, (resultArchive.length - 1) - i);
+        const queryAge = calculateMinutesBetweenTimestamps(Date.now(), result.time, (resultArray.length - 1) - i);
         const queryAgeString = queryAge === 0
             ? "       NOW: "
             : `${queryAge.toString().padStart(2)} MIN AGO: `
         //const mapNameString = `${result.query?.info.map.padEnd(longestMapNameLength) ?? "N/A"} `
-        const playerCountString = ' ' + (result.query ? (onlinePlayers.toString()) : result.err ?? "UNKNOWN ERROR") + '\n';
+        const playerCountString = ' ' + (players ? (players.online.toString()) : result.err ?? "UNKNOWN ERROR") + '\n';
 
         let playerGraphString = ""
 
@@ -495,7 +430,7 @@ function buildServerActivity(resultArchive: Result[], graphDensity: number = 4):
 
         const increment = graphChars.length;
 
-        for(let j = onlinePlayers; j > 0; j-=increment) {
+        for(let j = players?.online ?? 0; j > 0; j-=increment) {
             let charIndex = Math.min(graphChars.length, j);
             playerGraphString += graphChars[charIndex - 1];
         }
@@ -528,31 +463,25 @@ function calculateMinutesBetweenTimestamps(timestamp1: number, timestamp2: numbe
     return Math.max(index, diffMins - 1);
 }
 
-function getPings(server: TF2Server, result: Result): string {
+function getPings(server: TF2ServerConfig, result: Result): string {
 
-    if(result.query?.info.visibility === "private") {
-        return "";
-    }
+    if (result.query === undefined || result.query.info.visibility === "private") return "";
 
     let now = Date.now();
-
-    if(result.query === undefined) {
-        return "";
-    }
-
-    const onlinePlayers = result.query.info.players.online - (result.query.info.players.bots ?? 0);
-
     let toPing: string[] = [];
 
-    server.pings = server.pings.map(ping => {
-        if(ping.triggerTime === undefined && onlinePlayers >= ping.threshold) {
+    let pings = pingArchive.get(server.urlPath) ?? [];
+    const onlinePlayers = result.query.info.players.online - (result.query.info.players.bots ?? 0);
+
+    pingArchive.set(server.urlPath, pings.map(ping => {
+        if(ping.triggerTime === undefined && onlinePlayers >= ping.config.threshold) {
             ping.triggerTime = now;
-            toPing.push(ping.role);
-        } else if (onlinePlayers <= ping.threshold - hysteresis && now - (ping.triggerTime ?? now) > pingCooldownMS) {
+            toPing.push(ping.config.role);
+        } else if (onlinePlayers <= ping.config.threshold - hysteresis && now - (ping.triggerTime ?? now) > pingCooldownMS) {
             ping.triggerTime = undefined;
         }
         return ping;
-    });
+    }));
 
     return toPing.map(s => `<@&${s}>`).join(" ")
 }
@@ -563,19 +492,9 @@ const DISRUPTED = 0xffff00;
 const OFFLINE = 0xff0000;
 const FULL = 0x00ffaa;
 
-function getTitleAndColor(resultArchive: Result[], server: TF2Server): {title: string, notice: string, color: number, allowConnections?: boolean, sdr: boolean} {
-    let consecutivefailCount = 0;
-    let mostRecentResult: Result | undefined = undefined;
-
-    for(let i = resultArchive.length - 1; i >= 0; i-- ) {
-        const result = resultArchive[i];
-        if (result.query === undefined) {
-            consecutivefailCount++
-        } else {
-            mostRecentResult = result
-            break;
-        }
-    }
+function getTitleAndColor(server: TF2ServerConfig, resultArray: Result[]): {title: string, notice: string, color: number, allowConnections?: boolean, sdr: boolean} {
+    
+    const { raw: consecutivefailCount, mostRecentResult } = getFailureCount(resultArray);
 
     const sdr = mostRecentResult?.query?.info.address?.startsWith("169.254.") ?? false;
     
@@ -637,11 +556,11 @@ function getTitleAndColor(resultArchive: Result[], server: TF2Server): {title: s
     }
 }
 
-function buildPingActivity(server: TF2Server): string {
+function buildPingActivity(server: TF2ServerConfig): string {
     const buildRow = (ping: Ping): string => {
-        const start = `${ping.threshold} PLAYER PING: `
+        const start = `${ping.config.threshold} PLAYER PING: `
         if(ping.triggerTime === undefined) return `${start}READY`;
-        if(Date.now() - ping.triggerTime > pingCooldownMS) return `${start}RESETS BELOW ${ping.threshold - hysteresis + 1} PLAYERS`;
+        if(Date.now() - ping.triggerTime > pingCooldownMS) return `${start}RESETS BELOW ${ping.config.threshold - hysteresis + 1} PLAYERS`;
         
         const timeRemaining = ping.triggerTime + pingCooldownMS - Date.now();
         const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
@@ -650,5 +569,155 @@ function buildPingActivity(server: TF2Server): string {
         return `${start}ON COOLDOWN ${hours}h ${minutes}m`
     }
 
-    return "```" + server.pings.map(ping => buildRow(ping)).join("\n") + "```"
+    const pings = pingArchive.get(server.urlPath) ?? [];
+
+    return "```" + pings.map(ping => buildRow(ping)).join("\n") + "```"
+}
+
+async function updateStatusEmbed(server: TF2ServerConfig, resultArray: Result[]) {
+    const channel = await client.channels.fetch(server.channelID) as TextChannel;
+    const lastMessage = (await channel.messages.fetch({ limit: 1 })).first();
+
+    const result = resultArray[resultArray.length - 1];
+
+    const { title, notice, color, allowConnections, sdr } = getTitleAndColor(server, resultArray);
+    const pings = getPings(server, result);
+
+    let ipString = `${server.ip}:${server.port}`;
+    if (sdr) {
+        ipString = result.query?.info.address || "SDR IP NOT AVAILABLE";
+    } else if (server.connectString) {
+        ipString = server.connectString;
+    } else if (!server.ip.includes(".")) {
+        ipString = result.query?.info.address || "IP NOT AVAILABLE";
+    }
+    let connectString = "connect " + ipString;
+
+    const players = getPlayerCounts(result);
+
+    let fields = [
+        {
+            name: "Connect via console:",
+            value: `\`${connectString}\``,
+            inline: true
+        },
+        {
+            name: "Map:",
+            value: result.query?.info.map ?? "N/A",
+            inline: true
+        },
+        {
+            name: "Players:",
+            value: players
+                ? `${players.online}/${players.max}${(players.bots) > 0 ? ` (${players.bots} bots)` : ""}`
+                : "N/A",
+            inline: true
+        }
+    ];
+
+    if (server.pings.length > 0) {
+        fields.push({
+            name: "Activity Pings:",
+            value: buildPingActivity(server),
+            inline: false
+        })
+    }
+
+    fields.push({
+        name: "Recent History:",
+        value: buildServerActivity(resultArray, server.graphDensity),
+        inline: false
+    });
+
+    let connectUrl: string | undefined = undefined;
+    if (allowConnections) {
+        connectUrl = `${config.urlBase}/tf2/${server.urlPath}`;
+    }
+
+    let description = "\`\`\`" + server.description + (notice ? "\n\n" + notice : "") + "\`\`\`";
+
+    if (server.modName) {
+        const modUrl = `https://store.steampowered.com/app/${server.appID}/`;
+        description = `A server for [${server.modName}](${modUrl})\n` + description;
+    }
+
+    const embed = new EmbedBuilder({
+        title: title,
+        url: connectUrl,
+        description,
+        timestamp: Date.now(),
+        color: color,
+        fields: fields
+    })
+
+    if(pings.length === 0 && lastMessage && lastMessage.author.id === client.user?.id) {
+        await lastMessage.edit({embeds: [embed]})
+    } else {
+        if(lastMessage && lastMessage.author.id === client.user?.id) {
+            await lastMessage.delete();
+        } 
+        await channel.send({content: pings, embeds: [embed]})
+    }
+
+    console.log(`Updated server ${server.urlPath} (${ipString})`);
+}
+
+async function sendOutageAlerts(server: TF2ServerConfig, resultArray: Result[]) {
+    if (!server.alertChannelID) return;
+
+    const channel = await client.channels.fetch(server.alertChannelID) as TextChannel;
+    const isAlerting = alertArchive.get(server.urlPath);
+    const { withDecay: failureCount } = getFailureCount(resultArray);
+
+    if (!isAlerting && failureCount >= config.alertTime) { // Send Alert
+        
+    } else if (isAlerting && failureCount <= 0) { // Send resolution notice
+
+    }
+}
+
+function getFailureCount(resultArray: Result[]): { raw: number, withDecay: number, mostRecentResult: Result | undefined } {
+
+    let rawFailureCount = 0;
+    let mostRecentResult: Result | undefined = undefined;
+    
+    for(let i = resultArray.length - 1; i >= 0; i-- ) {
+        const result = resultArray[i];
+        if (result.query === undefined) {
+            rawFailureCount++;
+        } else {
+            mostRecentResult = result;
+            break;
+        }
+    }
+
+    let withDecayFailureCount = 0;
+
+    for (let i = 0; i < resultArray.length; i++) {
+        const result = resultArray[i];
+        if (result.query === undefined) {
+            withDecayFailureCount++;
+            if (withDecayFailureCount > config.alertTime) withDecayFailureCount = config.alertTime;
+        } else {
+            withDecayFailureCount -= config.alertDecayRate;
+            if (withDecayFailureCount < 0) withDecayFailureCount = 0;
+        }
+    }
+
+    return {
+        raw: rawFailureCount,
+        withDecay: withDecayFailureCount,
+        mostRecentResult
+    }
+}
+
+function getPlayerCounts(result: Result): { online: number, max: number, bots: number } | undefined {
+
+    if (result.query === undefined) return;
+
+    return {
+        online: result.query.info.players.online - result.query.info.players.bots,
+        max: result.query.info.players.max,
+        bots: result.query.info.players.bots
+    }
 }

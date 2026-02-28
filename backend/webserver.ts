@@ -1,7 +1,7 @@
 import fs from "fs";
 import express, {Request, Response} from "express";
 import path from "path";
-import { Config, ExternalLink, getConnectLinkSDR, getIPfromSteamID, getResultsArchive, Result } from ".";
+import { Config, ExternalLinkConfig, getConnectLinkSDR, getIPfromSteamID, getResultsArchive, Result } from ".";
 
 let config = require("./config.json") as Config;
 
@@ -16,7 +16,7 @@ interface SimpleResult {
 }
 
 interface APIQuery {
-    externalLinks: ExternalLink[],
+    externalLinks: ExternalLinkConfig[],
     websiteTitle: string,
     servers: {
         urlPath: string,
