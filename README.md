@@ -13,6 +13,7 @@ This bot lets you and your community monitor the activity your TF2 servers via D
 - Full support for TF2 sourcemods like [TF2 Classified](https://store.steampowered.com/app/3545060/Team_Fortress_2_Classified/) or [TF2 Gold Rush](https://store.steampowered.com/app/3826520/Team_Fortress_2_Gold_Rush/).
 - Serve custom downloads with built-in FastDL capability.
 - Logs queries, usage of instant connect links, and FastDL downloads.
+- Pings a desired target in Discord when the servers go down.
 
 This bot does **not**:
 
@@ -36,14 +37,17 @@ This configuration file goes at `./config.json` relative to the current working 
 {
     "discordToken": "MY_DISCORD_TOKEN",
     "websiteTitle": "megascatterbomb's servers",
+    "publishSite": true,
     "interval": 1,
     "queriesPerInterval": 1,
     "pingCooldown": 120,
     "fastdlPath": "./temp",
     "steamApiKey": "MY_STEAM_API_KEY",
     "urlBase": "https://megascatterbomb.com",
-    "publishSite": true,
     "webPort": 3001,
+    "alertTarget": "<@1234567890123456789>",
+    "alertTime": 5,
+    "alertDecayRate": 0.25,
     "externalLinks": [
         {
             "title": "YouTube",
@@ -70,6 +74,7 @@ This configuration file goes at `./config.json` relative to the current working 
             "supportsDirectConnect": true,
             "urlPath": "bs",
             "channelID": "12345678901234567890",
+            "alertChannelID": "12345678901234567890",
             "pings": [
                 {
                     "role": "12345678901234567890",
@@ -98,6 +103,7 @@ This configuration file goes at `./config.json` relative to the current working 
             "urlPath": "kiwi",
             "connectString": "example.com",
             "channelID": "12345678901234567890",
+            "alertChannelID": "12345678901234567890",
             "pings": []
         }
     ]
@@ -111,6 +117,9 @@ The discord token for your discord bot. Get one here: https://discord.com/develo
 
 #### `websiteTitle`
 The title of the website. Displays both in the browser tab and at the top of the page.
+
+#### `publishSite`
+Set to `true` or `false`, determines if a webpage will be served at the root URL. If you have your own site you should set this to false and redirect any requests to `/tf2` and `/api` to this bot.
 
 #### `interval`
 In minutes, what's the maximum interval between two queries to a given TF2 server?
@@ -132,11 +141,19 @@ Used to query Steam Networking based servers, both to fetch the IP address from 
 #### `urlBase`
 The base URL to prepend any links and such with. Include the `http://` or `https://` at the front. For example, I set `https://megascatterbomb.com` which means my server's connect link will be `https://megascatterbomb.com/tf2/bs`.
 
-#### `publishSite`
-Set to `true` or `false`, determines if a webpage will be served at the root URL. If you have your own site you should set this to false and redirect any requests to `/tf2` and `/api` to this bot.
-
 #### `webPort`
 The port your website and API is served on.
+
+#### `alertTarget`
+The target for your alert messages. Recommended to be a user ping `<@12345678901324657890>` or a role ping `<@&12345678901324657890>`.
+
+#### `alertTime`
+The time that the server has to be down for the server to alert. The program has an internal counter that increments whenever the server fails to respond to a query. The counter has to hit this value to send an outage notification.
+
+#### `alertDecayRate`
+If the server responds to a query, it subtracts this amount from the aforementioned downtime counter. If the counter reaches `alertTime` but is not composed of entirely consecutive requests, an instability notification will be sent.
+
+In either case, a "recovered" notice will be sent once the counter decays back to zero. A value of 0.25-0.5 is recommended.
 
 #### `externalLinks`
 An array of JSON objects defining what external links are printed at the bottom of the website. The links are displayed in the order they are defined in the config file. The properties of an external link object are as follows
@@ -156,7 +173,8 @@ An array of JSON objects defining the configuration for each of your TF2 servers
 - `supportsDirectConnect`: Set to `true` to enable the instant connect links. Set to `false` to disable them.
 - `urlPath`: The alias for the server that will be used for instant connect links. Instant connect links follow the format `{baseURL}/tf2/{urlPath}`. Please note if you specify a server path that conflicts with a FastDL path, the server path will take priority, so don't use `maps`, `materials`, `custom` etc as server prefixes.
 - `connectString` (optional): if provided, the console command that users can copy to manually connect will be replaced with this string, so if your connectString is `tf2example.com` then the bot will display `connect tf2example.com`. Steam Networked servers ignore this value.
-- `channelID`: The discord channel id that the bot posts messages in. If the latest available message is from the same bot, it will edit that message (or delete and replace if pinging). Otherwise it will post a new message. This should always be input as a string.
+- `channelID`: The discord channel id that the bot posts the status embed in. If the latest available message is from the same bot, it will edit that message (or delete and replace if pinging). Otherwise it will post a new message. This should always be input as a string.
+- `alertChannelID`: The discord channel id that the bot posts downtime/instability notifications in. Unlike `channelID`, you can reuse the same `alertChannelID` for multiple servers, however you should never use a channel as both `channelID` and `alertChannelID`.
 - `pings`: A JSON array defining which roles the bot should ping and what player count those pings should trigger at.
 
 The ping objects have this structure:
