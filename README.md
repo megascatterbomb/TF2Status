@@ -162,6 +162,9 @@ An array of JSON objects defining what external links are printed at the bottom 
 - `url`: The URL that is opened when the button is clicked. Links always open in a new tab.
 - `description`: Text that is displayed alongside the button.
 
+#### `logIntervals`
+A boolean that determines if the regular querying of the TF2 servers should be logged in stdout. Errors and any incoming web requests are always logged regardless of this setting.
+
 #### `servers`
 An array of JSON objects defining the configuration for each of your TF2 servers. The servers are listed on the site in the same order they are defined in the config file.
 
