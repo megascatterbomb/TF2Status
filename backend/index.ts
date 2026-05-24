@@ -96,7 +96,8 @@ export type Config = {
     steamApiKey: string | undefined,
     fastdlPath: string | undefined,
     publishSite: boolean,
-    externalLinks: ExternalLinkConfig[]
+    externalLinks: ExternalLinkConfig[],
+    logIntervals: boolean
 }
 
 // RUNTIME TYPES
@@ -177,7 +178,7 @@ async function mainLoop() {
         const time = Date.now();
 
         const updateString = count === 0 ? "=== PERFORMING QUERY + ARCHIVE === " : "=== PERFORMING QUERY ===";
-        console.log(`${updateString}`);
+        if (config.logIntervals) console.log(`${updateString}`);
         
         await Promise.allSettled(config.servers.map(async server => {
             await handleServer(server, count === 0);
@@ -187,7 +188,7 @@ async function mainLoop() {
         const actualInterval = intervalMS / config.queriesPerInterval;
         const nextInterval = (Math.floor(time2 / actualInterval) * actualInterval) + actualInterval;
 
-        console.log(`Next update due at ${new Date(nextInterval)}`)
+        if (config.logIntervals) console.log(`Next update due at ${new Date(nextInterval)}`)
 
         await new Promise(r => setTimeout(r, nextInterval - time2));
         lastUpdateTime = time;
@@ -213,7 +214,7 @@ async function handleServer(server: TF2ServerConfig, addToHistory: boolean) {
             const lastPlayers = lastResult ? getPlayerCounts(lastResult)?.online ?? 0 : 0;
 
             if (lastPlayers === 0 || (lastResult?.query === undefined && secondLastResult?.query === undefined)) {
-                console.log(`Skipping update for ${server.urlPath}`);
+                if (config.logIntervals) console.log(`Skipping update for ${server.urlPath}`);
                 return;
             }
         }
@@ -673,7 +674,7 @@ async function updateStatusEmbed(server: TF2ServerConfig, resultArray: Result[])
         await channel.send({content: pings, embeds: [embed]})
     }
 
-    console.log(`Updated server ${server.urlPath}${players ? `\t(${players.online}/${players.max})` : "" }`);
+    if (config.logIntervals) console.log(`Updated server ${server.urlPath}${players ? `\t(${players.online}/${players.max})` : "" }`);
 }
 
 async function sendOutageAlerts(server: TF2ServerConfig, resultArray: Result[]) {
